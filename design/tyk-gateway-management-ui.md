@@ -110,6 +110,8 @@ container.restart()
 
 **部署**：该服务与 Tyk Gateway 在同一台机器上运行，通过 Docker unix socket 通信。约 60 行代码，`npm install dockerode express` 即可启动。
 
+> **部署约束**：dockerode 服务依赖 Docker unix socket (`/var/run/docker.sock`)，必须与 Docker Daemon 在同一台主机上运行，不支持远程 Docker。若未来将 Tyk 迁移至 Kubernetes（Tyk Operator 管理），需重新设计 Docker 管理方案。
+
 ### 2.3 Refine Data Provider → Tyk API 映射关系
 
 ```
@@ -139,13 +141,19 @@ container.restart()
 |---------------|---------------------|------|
 | `getList` | `GET /tyk/apis/` | 列出所有 API 定义 |
 | `getOne` | `GET /tyk/apis/{apiID}` | 获取单个 API 定义 |
-| `create` | `POST /tyk/apis/` + `GET /tyk/reload/` | 创建后自动重载 |
-| `update` | `PUT /tyk/apis/{apiID}` + `GET /tyk/reload/` | 更新后自动重载 |
-| `deleteOne` | `DELETE /tyk/apis/{apiID}` + `GET /tyk/reload/` | 删除后自动重载 |
+| `create` | `POST /tyk/apis/` | 创建 API 定义 |
+| `update` | `PUT /tyk/apis/{apiID}` | 更新 API 定义 |
+| `deleteOne` | `DELETE /tyk/apis/{apiID}` | 删除 API 定义 |
 | `getList` | `GET /tyk/keys/` | 列出密钥 |
 | `create` | `POST /tyk/keys/create` | 创建密钥 |
 | `update` | `PUT /tyk/keys/{keyId}` | 更新密钥 |
 | `deleteOne` | `DELETE /tyk/keys/{keyId}` | 删除密钥 |
+
+> **Reload 策略**：Tyk Gateway 的 `/tyk/reload/` 会导致所有 API 短暂不可用（约 1-3 秒），高频 reload 会放大中断影响。因此：
+> - 默认开启「自动 reload」模式：每次 create/update/deleteOne 后自动调用 `/tyk/reload/`（适合开发/测试环境，操作频率低）
+> - 提供「暂停自动 reload」开关：关闭后，Data Provider 仅标记操作状态为「未生效」，顶部显示 banner「有 N 项未生效的更改，点击应用」
+> - 点击 banner 一次性调用 `/tyk/reload/`，所有更改批量生效
+> - 仪表板显示「距离上次 reload」时间和 reload 次数计数器
 
 ### 2.4 数据库定位
 
@@ -158,7 +166,7 @@ container.restart()
 
 > v1 不需要额外部署任何数据库。Tyk Gateway + Redis 已就绪即可。
 
-### 2.5 网关连接配置
+### 2.5 网关连接配置与安全
 
 配置存入前端 `localStorage`，设置页提供配置入口：
 
@@ -166,7 +174,17 @@ container.restart()
 |--------|--------|------|
 | Tyk Gateway 地址 | `http://localhost:8080` | Tyk Gateway 监听地址 |
 | API Secret | — | `x-tyk-authorization` Header 值 |
+| Docker 管理服务地址 | `http://localhost:3001` | Docker 管理服务监听地址 |
 | 轮询间隔 | `10s` | 监控数据自动刷新间隔 |
+
+**安全说明**：
+- API Secret 存储在浏览器 `localStorage`，存在 XSS 泄露风险。v1 定位为内网/开发环境管理工具，该风险可接受。生产环境需通过后端代理托管 Secret
+- 设置页面 Secret 输入框使用 `type="password"`，并提供「显示/隐藏」切换
+
+**Auth 与 Secret 关系**：
+- Supabase Auth 用于登录控制和页面访问保护
+- v1 所有登录用户共用同一套 Tyk API Secret（存储在设置页的配置中）
+- v2 如需要多租户隔离（不同用户有不同 Tyk 访问权限），需在后端服务中增加 Secret 托管层
 
 ---
 
@@ -272,8 +290,9 @@ container.restart()
 - 全局统计卡片（API 数量、活跃数、总请求速率、平均延迟）
 - 每个 API 的健康指标列表（来自 `/tyk/health/`）
 - 支持按状态筛选（正常/警告/异常）
-- 自动轮询刷新（可配置间隔）
-- 一键重载按钮（`GET /tyk/reload/`）
+- 手动刷新按钮（默认关闭自动轮询，避免 N+1 问题）
+- 自动轮询开关（用户按需开启，可配置间隔）
+- 一键重载按钮（`GET /tyk/reload/`），显示距离上次 reload 时间和 reload 次数
 
 #### 4.2.2 🔌 网关管理（Gateway Lifecycle）
 
@@ -304,6 +323,7 @@ container.restart()
 - Tyk Gateway Docker 容器运行状态（通过 dockerode `container.inspect()`）
 - 启动/停止/重启（确认弹窗，操作后轮询状态直到完成）
 - 操作历史（最近操作的 Timeline）
+- 降级行为：Docker 管理服务不可达时，按钮变灰色 + 提示「Docker 管理服务不可用」，不影响仪表板和 API 管理
 
 #### 4.2.3 🔌 服务管理（API Definitions）
 
@@ -336,9 +356,36 @@ container.restart()
 
 ---
 
-## 五、API Definition 字段完整性
+## 五、降级策略
 
-沿用原设计文档的 Schema 驱动方案。v1 只覆盖下列高频分组：
+各数据源不可达时的行为定义：
+
+| 故障场景 | 仪表板 | 网关管理页 | API 管理 | 密钥管理 |
+|---------|:------:|:--------:|:------:|:------:|
+| Tyk Gateway 不可达 | 全局 Banner 提示 + 数据清空 + 15s 自动重试 | 不受影响（走 Docker 服务） | 列表为空 + 全局错误提示 | 列表为空 + 全局错误提示 |
+| Docker 管理服务不可达 | 不受影响（走 Tyk API） | 灰色按钮 + 提示「Docker 管理服务不可用」 | 不受影响 | 不受影响 |
+| 两服务均不可达 | 全局 Banner 提示 | 灰色按钮 + 提示「Docker 管理服务不可用」 | 列表为空 + 全局错误提示 | 列表为空 + 全局错误提示 |
+
+**恢复行为**：服务恢复后，所有页面自动重连（Data Provider 内置重试），无需手动刷新。
+
+---
+
+## 六、全局错误处理
+
+统一错误处理策略，确保用户知道发生了什么：
+
+| 错误类型 | 处理方式 |
+|---------|---------|
+| Tyk API 调用失败 | Toast 错误提示 + 操作按钮可点击重试 |
+| 网络超时 | 超时提示 + 重试按钮 + 自动重试（3次指数退避） |
+| 401/403 Forbidden | 提示「请检查 API Secret 配置」+ 跳回设置页 |
+| Docker 管理服务错误 | 网关管理页按钮灰色 + 提示 + 30s 自动重连 |
+| 创建/编辑表单验证失败 | 表单字段标红 + 滚动到第一个错误字段 |
+| 删除操作的级联影响 | 确认弹窗中显示被删除资源的关联信息 |
+
+---
+
+## 七、API Definition 字段完整性
 
 | 分组 | 字段数 | v1 覆盖 |
 |------|--------|:------:|
@@ -357,13 +404,13 @@ container.restart()
 
 ---
 
-## 六、技术风险与应对
+## 八、技术风险与应对
 
 | 风险 | 应对 |
 |------|------|
 | Tyk Gateway API 字段繁多 | 分阶段实现，v1 仅核心字段，schema 驱动渐进补全 |
 | Tyk Gateway OSS 无内置 analytics 查询 API | v1 不做日志查询，v2 借助 Tyk Pump → MongoDB + 查询服务 |
-| 每次修改需 reload（短暂中断） | Data Provider 中自动 reload、加载状态指示 |
+| `/tyk/reload/` 导致所有 API 短暂不可用 |...[truncated]
 | Gateway 连接中断 | 健康检查失败时全局 Banner 提示 + 自动重试 |
 | Docker 操作可能造成服务中断 | 启停前确认弹窗 + 操作后状态轮询 + 错误降级处理 |
 | Tyk 不是标准 REST API | Refine Data Provider 层做适配，页面代码不关心 |
@@ -371,7 +418,7 @@ container.restart()
 
 ---
 
-## 七、附录
+## 九、附录
 
 ### A. Tyk Gateway 常用端口
 
