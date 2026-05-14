@@ -1,21 +1,23 @@
 # ichse-asset-share-center — v1 实施与验证计划
 
 > 设计文档：`design/tyk-gateway-management-ui.md`
-> 框架：Refine v5 + Ant Design v5 + Supabase Auth
-> 架构：前端 Refine Data Provider 直调 Tyk Gateway API（无需后端代理）
-> 预计工期：总计约 8-10 天
+> v1 架构：Refine v5 + Ant Design v5 + Supabase Auth，Data Provider 直调 Tyk Gateway API
+> Docker 管理：dockerode (Node.js Docker SDK) 极简管理服务（~60 行）
+> v2 架构：v1 + PostgreSQL（业务数据）+ 后端业务服务
+> 预计工期：总计约 9-11 天
 
 ---
 
 ## 整体 Stage 路线图
 
 ```
-Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
-环境确认   仪表板      API管理     密钥管理     集成验证
- 0.5天     2天         3天         1.5天       1天
+Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4 ─→ Stage 5
+环境确认  Docker管理   仪表板      API管理     密钥管理     集成验证
+ 0.5天     +DataProv   2天         3天         1.5天       1天
+            1天
 ```
 
-> v1 不包含：后端代理服务、Docker 网关管理、日志查看（Pump → MongoDB）、PostgreSQL 集成。这些划入 v2。
+> v1 不包含：日志查看（Pump → MongoDB）、PostgreSQL 集成、OAuth 管理、API 版本管理。这些划入 v2。
 
 ---
 
@@ -42,26 +44,58 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 
 ---
 
-## Stage 1：仪表板 + Data Provider（预计 2 天）
+## Stage 1：Docker 管理服务 + Data Provider（预计 1 天）
 
 ### 目标
-实现 Tyk Data Provider（直连 Tyk API）+ 网关状态仪表板。
+搭建 Docker 管理服务（dockerode）+ 实现 Tyk Data Provider（Refine 数据层）。
 
 ### 任务清单
 
 | # | 任务 | 产出 | 验收条件 |
 |---|------|------|---------|
-| 1.1 | 编写 Tyk Data Provider（apis CRUD） | `src/providers/tyk-data-provider.ts` | 5 个 Refine Action 正确映射到 Tyk 端点 |
-| 1.2 | 编写 Tyk Data Provider（keys CRUD） | 同上文件扩展 | 密钥 CRUD 正确映射 |
-| 1.3 | 创建 Dashboard 页面 + 路由 | `src/pages/dashboard/index.tsx` | 路由 `/` 可访问 |
-| 1.4 | 网关状态卡片（版本/Redis/运行状态） | `src/components/health-card.tsx` | 从 `/hello` 获取数据显示 |
-| 1.5 | 全局统计卡片（API 总数/请求率/平均延迟） | 仪表板组件 | 从 `/tyk/health/` 遍历聚合 |
-| 1.6 | API 健康指标列表（请求率/延迟/错误率） | 仪表板表格 | 每行一个 API，状态指示 |
-| 1.7 | 一键重载按钮 + 确认弹窗 + 结果反馈 | 仪表板按钮 | 调 `/tyk/reload/` → 显示结果 |
-| 1.8 | 自动轮询刷新（间隔 10s 可配置） | useInterval hook | 仪表板自动更新 |
-| 1.9 | 设置页面（Gateway 地址 + Secret 配置，存 localStorage） | `src/pages/settings/index.tsx` | 配置可保存、测试连接可用 |
+| 1.1 | 搭建 Docker 管理服务 | `docker-manager/index.js` | `npm install dockerode express` 后可启动 |
+| 1.2 | 实现容器状态查询 | `GET /api/gateway/status` | 返回 JSON `{ running, status, version, ports }` |
+| 1.3 | 实现启动/停止/重启 | `POST /api/gateway/{start,stop,restart}` | 操作成功返回状态变更 |
+| 1.4 | 启动服务并验证 | `node index.js` | curl 各端点正常，Docker 容器可启停 |
+| 1.5 | 编写 Tyk Data Provider（apis CRUD + 自动 reload） | `src/providers/tyk-data-provider.ts` | 5 个 Refine Action 正确映射到 Tyk 端点 |
+| 1.6 | 编写 Tyk Data Provider（keys CRUD） | 同上文件扩展 | 密钥 CRUD 正确映射 |
 
-> Data Provider 中的 `create`/`update`/`deleteOne` 方法会自动在成功后调用 `/tyk/reload/`，无需用户手动触发。
+### Docker 管理服务 API 清单
+
+| 方法 | 路径 | 说明 | 返回示例 |
+|------|------|------|---------|
+| `GET` | `/api/gateway/status` | 容器运行状态 | `{ running: true, status: "Up 3 days", startedAt: "...", version: "v5.7.0" }` |
+| `POST` | `/api/gateway/start` | 启动容器 | `{ ok: true, action: "start" }` |
+| `POST` | `/api/gateway/stop` | 停止容器 | `{ ok: true, action: "stop" }` |
+| `POST` | `/api/gateway/restart` | 重启容器 | `{ ok: true, action: "restart" }` |
+
+### 验证
+
+- [ ] Docker 管理服务 `npm start` 可启动
+- [ ] `curl localhost:3001/api/gateway/status` 返回正确状态
+- [ ] `curl -X POST localhost:3001/api/gateway/restart` 成功重启 Tyk
+- [ ] Data Provider `getList` / `getOne` / `create` / `update` / `deleteOne` 均可正确调用
+- [ ] create/update/deleteOne 成功后自动 reload
+
+---
+
+## Stage 2：仪表板 + 网关管理（预计 2 天）
+
+### 目标
+实现网关状态仪表板 + Docker 启停管理页面。
+
+### 任务清单
+
+| # | 任务 | 产出 | 验收条件 |
+|---|------|------|---------|
+| 2.1 | 创建 Dashboard 页面 + 路由 | `src/pages/dashboard/index.tsx` | 路由 `/` 可访问 |
+| 2.2 | 网关状态卡片（版本/Redis/运行状态） | `src/components/health-card.tsx` | 从 `/hello` 获取数据显示 |
+| 2.3 | 全局统计卡片（API 总数/请求率/平均延迟） | 仪表板组件 | 从 `/tyk/health/` 遍历聚合 |
+| 2.4 | API 健康指标列表（请求率/延迟/错误率） | 仪表板表格 | 每行一个 API，状态指示 |
+| 2.5 | 一键重载按钮 + 确认弹窗 + 结果反馈 | 仪表板按钮 | 调 `/tyk/reload/` → 显示结果 |
+| 2.6 | 自动轮询刷新（间隔 10s 可配置） | useInterval hook | 仪表板自动更新 |
+| 2.7 | 网关管理页面（Docker 容器状态 + 启停按钮） | `src/pages/gateway/index.tsx` | 调 Docker 管理服务，状态正确 |
+| 2.8 | 设置页面（Gateway 地址 + Secret + Docker 服务地址，存 localStorage） | `src/pages/settings/index.tsx` | 配置可保存、测试连接可用 |
 
 ### 验证
 
@@ -69,13 +103,16 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 - [ ] Redis 正常时显示 ✅，断开时显示 ❌
 - [ ] 创建/删除 API 后统计数字正确更新
 - [ ] 一键重载成功有反馈
+- [ ] 网关管理页面正确显示容器运行/停止状态
+- [ ] 点击停止 → 容器停止 → 仪表板标记网关离线
+- [ ] 点击启动 → 容器启动 → 恢复正常
 - [ ] 轮询间隔配置生效
-- [ ] 设置页可保存 Gateway 地址 + Secret
+- [ ] 设置页可保存全部配置项
 - [ ] 测试连接功能可用
 
 ---
 
-## Stage 2：API 服务管理（预计 3 天）
+## Stage 3：API 服务管理（预计 3 天）
 
 ### 目标
 实现 API Definition 的完整 CRUD 界面（v1 核心字段）。
@@ -84,13 +121,13 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 
 | # | 任务 | 产出 | 验收条件 |
 |---|------|------|---------|
-| 2.1 | API 列表页（表格 + 搜索/筛选） | `src/pages/apis/list.tsx` | 字段完整、搜索正常工作 |
-| 2.2 | 创建 API 表单 — 基本信息 + 路由配置 | `src/pages/apis/create.tsx` | 正确提交到 Tyk API |
-| 2.3 | 创建 API 表单 — 认证配置 + 速率限制 | 同上扩展 Tab | 各认证模式正确 |
-| 2.4 | 创建 API 表单 — CORS + 缓存配置 | 同上扩展 Tab | 字段联动正确 |
-| 2.5 | 编辑 API 页面（预填 + 修改 + 提交） | `src/pages/apis/edit.tsx` | 预填正确，提交后自动 reload |
-| 2.6 | 查看 API 详情（JSON 格式化只读） | `src/pages/apis/show.tsx` | 完整 JSON 展示 |
-| 2.7 | 删除 API（确认弹窗 + 自动 reload） | 列表页操作列 | 删除后不可访问 |
+| 3.1 | API 列表页（表格 + 搜索/筛选） | `src/pages/apis/list.tsx` | 字段完整、搜索正常工作 |
+| 3.2 | 创建 API 表单 — 基本信息 + 路由配置 | `src/pages/apis/create.tsx` | 正确提交到 Tyk API |
+| 3.3 | 创建 API 表单 — 认证配置 + 速率限制 | 同上扩展 Tab | 各认证模式正确 |
+| 3.4 | 创建 API 表单 — CORS + 缓存配置 | 同上扩展 Tab | 字段联动正确 |
+| 3.5 | 编辑 API 页面（预填 + 修改 + 提交） | `src/pages/apis/edit.tsx` | 预填正确，提交后自动 reload |
+| 3.6 | 查看 API 详情（JSON 格式化只读） | `src/pages/apis/show.tsx` | 完整 JSON 展示 |
+| 3.7 | 删除 API（确认弹窗 + 自动 reload） | 列表页操作列 | 删除后不可访问 |
 
 ### 创建表单 — v1 覆盖字段
 
@@ -119,7 +156,7 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 
 ---
 
-## Stage 3：密钥管理（预计 1.5 天）
+## Stage 4：密钥管理（预计 1.5 天）
 
 ### 目标
 实现 API Token 的全生命周期管理界面。
@@ -128,10 +165,10 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 
 | # | 任务 | 产出 | 验收条件 |
 |---|------|------|---------|
-| 3.1 | 密钥列表页（表格 + 状态指示） | `src/pages/keys/list.tsx` | 数据正确，状态标签正确 |
-| 3.2 | 创建密钥表单（授权 API 选择 + 配额/速率/过期） | `src/pages/keys/create.tsx` | 创建成功，可用密钥调 API |
-| 3.3 | 编辑密钥表单 | `src/pages/keys/edit.tsx` | 预填正确 + 保存成功 |
-| 3.4 | 吊销密钥（确认弹窗） | 列表页操作列 | 密钥不可再使用 |
+| 4.1 | 密钥列表页（表格 + 状态指示） | `src/pages/keys/list.tsx` | 数据正确，状态标签正确 |
+| 4.2 | 创建密钥表单（授权 API 选择 + 配额/速率/过期） | `src/pages/keys/create.tsx` | 创建成功，可用密钥调 API |
+| 4.3 | 编辑密钥表单 | `src/pages/keys/edit.tsx` | 预填正确 + 保存成功 |
+| 4.4 | 吊销密钥（确认弹窗） | 列表页操作列 | 密钥不可再使用 |
 
 ### 验证
 
@@ -143,7 +180,7 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 
 ---
 
-## Stage 4：集成验证与发布（预计 1 天）
+## Stage 5：集成验证与发布（预计 1 天）
 
 ### 目标
 完整走通所有 v1 功能，逐项验收，确认可交付。
@@ -157,6 +194,14 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 - [ ] 一键重载成功且有反馈
 - [ ] 统计数据随 API 增删正确更新
 - [ ] 自动轮询刷新正常工作
+
+#### 网关管理（Docker）
+- [ ] 容器运行状态正确显示（运行中/已停止/重启中）
+- [ ] 停止容器 → 仪表板标记网关离线
+- [ ] 启动容器 → 恢复正常，可继续操作 Tyk API
+- [ ] 重启容器 → 状态先显示"重启中"，之后恢复运行中
+- [ ] 启停操作确认弹窗正常
+- [ ] Docker 管理服务不可达时有降级提示
 
 #### API 管理
 - [ ] 创建一个 keyless API，curl 能调通
@@ -176,7 +221,7 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 - [ ] 状态标签正确（有效/即将过期/已过期）
 
 #### 设置
-- [ ] Gateway 地址 + Secret 可保存（localStorage）
+- [ ] Gateway 地址 + Secret + Docker 服务地址可保存（localStorage）
 - [ ] 测试连接反馈成功/失败
 - [ ] 修改配置后页面立即生效
 
@@ -193,10 +238,10 @@ Stage 0 ─→ Stage 1 ─→ Stage 2 ─→ Stage 3 ─→ Stage 4
 | 模块 | v1 状态 | v2 规划 |
 |------|:-------:|---------|
 | 网关仪表板 | ✅ 完整覆盖 | 更多统计图表 |
+| 网关管理（Docker） | ✅ 启停/重启/状态 | 多实例管理/生产部署 |
 | API 管理 | ✅ 核心字段 CRUD（6 Tab） | 全字段（120+）+ 版本管理 + OAS |
 | 密钥管理 | ✅ 完整覆盖 | 批量操作/策略绑定 |
 | 设置 | ✅ 基础配置 | 多实例 |
-| 网关管理（Docker） | ❌ 跳过 | ✅ 启停/重启/状态 |
 | 日志查看 | ❌ 跳过 | ✅ Pump→MongoDB→查询服务 |
 | OAuth 管理 | ❌ 跳过 | v2 考虑 |
 | 自定义中间件 | ❌ 跳过 | v2 考虑 |

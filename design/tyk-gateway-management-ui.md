@@ -1,7 +1,9 @@
 # Tyk 网关服务配置与监控界面 — 设计方案
 
 > 项目：ichse-asset-share-center
-> 框架：Refine v5 + Ant Design + Supabase (Auth)
+> v1 架构：Refine v5 + Ant Design + Supabase (Auth)，Data Provider 直调 Tyk Gateway API
+> v2 架构：v1 + PostgreSQL（业务数据）+ 后端业务服务
+> Docker 管理：dockerode (Node.js Docker SDK，极简管理服务)
 > 目标：构建一套完整的 Tyk API Gateway (OSS) 服务配置与监控管理界面
 
 ---
@@ -14,11 +16,10 @@ Tyk Gateway 是一个云原生的开源 API 网关（Go 语言），支持 REST/
 
 ### v1（纯工具层）
 构建基于 Refine 框架的 **Tyk Gateway OSS 管理界面**，覆盖：
-1. **网关管理** — 查看/启动/停止/重启 Tyk Gateway（Docker）容器
+1. **网关管理** — 查看/启动/停止/重启 Tyk Gateway（Docker）容器（通过 dockerode）
 2. **服务配置** — API 定义的全生命周期管理（CRUD）
 3. **密钥管理** — API Token 的创建、编辑、吊销
 4. **监控面板** — 网关健康状态 + 各 API 运行指标
-5. **日志查看** — 请求/响应出入参数的查看（通过 Tyk Pump → MongoDB）
 
 > 设计原则：一切可配置。API 支持什么字段，页面就展示什么字段。不预设简化、不隐藏能力。
 
@@ -36,44 +37,80 @@ Tyk Gateway 是一个云原生的开源 API 网关（Go 语言），支持 REST/
 
 ### 2.1 总体架构
 
-```
+```json
 ┌─────────────────────────────────────────────────────────────┐
 │                    Refine UI (浏览器)                         │
 │                                                             │
-│  ⚡仪表板  🔌API管理  🔑密钥管理  📋日志  ⚙设置              │
+│  ⚡仪表板  🔌网关管理  🔌API管理  🔑密钥管理  ⚙设置          │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │              Custom Data Provider                        ││
 │  │  getList / getOne / create / update / deleteOne          ││
-│  │  ↓ 直接调 Tyk Gateway API（x-tyk-authorization 身份验证） ││
+│  │  ↓ 直调 Tyk Gateway API（x-tyk-authorization 验证）       ││
 │  └─────────────────────────────────────────────────────────┘│
-└──────────────────────────┬──────────────────────────────────┘
-                           │ HTTP (直连)
-                    ┌──────▼──────┐
-                    │ Tyk Gateway │ ←──→ Redis (运行时)
-                    │ ( :8080 )   │
-                    └──────┬──────┘
-                           │
-                    ┌──────▼──────┐
-                    │ Tyk Pump    │ ──→ MongoDB (日志 + analytics)
-                    └─────────────┘
+│                                                             │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │           Docker API Client (fetch)                      ││
+│  │  ↓ 调 Docker 管理服务 (Node.js + dockerode)               ││
+│  └─────────────────────────────────────────────────────────┘│
+└──────────┬──────────────────────┬───────────────────────────┘
+           │ HTTP (直连)          │ HTTP
+    ┌──────▼──────┐       ┌──────▼──────────────┐
+    │ Tyk Gateway │       │ Docker 管理服务      │
+    │ ( :8080 )   │       │ (Express + dockerode)│
+    │ ←→ Redis    │       │  :3001               │
+    └─────────────┘       └──────┬───────────────┘
+                                 │ unix socket
+                          ┌──────▼──────┐
+                          │ Docker Daemon│
+                          │ (container)  │
+                          └─────────────┘
 ```
 
-**核心设计思路**：Refine 框架本身通过 **Data Provider** 模式抽象数据层。本项目的 Data Provider 直接调 Tyk Gateway 管理 API，不做多余的中间层。Tyk API 自身带有 `x-tyk-authorization` 身份验证，前端设置页配置网关地址 + Secret 存入 localStorage。
+**两个数据源**：
+| 数据源 | 协议 | 用途 |
+|--------|------|------|
+| Tyk Gateway API | HTTP (直连) | API CRUD / 密钥 / 健康检查 / 重载 |
+| Docker 管理服务 | HTTP (localhost:3001) | 容器状态查询 / 启动 / 停止 / 重启 |
 
-### 2.2 为何不需要后端代理
+**核心设计思路**：Refine 框架通过 **Data Provider** 模式抽象 Tyk API 调用，直接发 `x-tyk-authorization` 头的 HTTP 请求。Docker 容器管理通过一个极简的 Node.js 服务（`dockerode` 调用 Docker Daemon）实现，约 60 行代码，不属于"后端代理"——它不转发 Tyk API 调用。Tyk API 自身的 `x-tyk-authorization` 验证足够 v1 使用，无需额外认证中间层。
 
-| 之前担心的点 | 实际处理方式 |
-|-------------|------------|
-| **API Secret 安全** | Tyk 的 `x-tyk-authorization` 本身就是设计给客户端用的，配置存在前端 localStorage 即可，v1 无高安全要求 |
-| **Docker 管理** | v1 不包含。Tyk 容器启停手动操作，v2 如有需要再加 |
-| **多数据源聚合** | v1 只调 Tyk API 一个数据源，不存在聚合问题 |
-| **日志查询** | v1 日志查看划入 v2。Pump + MongoDB 的查询服务 v2 再做 |
-| **逻辑封装** | create/update 后的 reload 可以在 Refine 的 Data Provider 的 `create`/`update` 方法里自动调用 |
+### 2.2 Docker 管理服务（dockerode）
+
+Docker 容器管理无法从浏览器直接调用（需要访问 Docker Daemon 的 unix socket）。通过一个极简的 Node.js 服务桥接：
+
+```js
+const Docker = require('dockerode');
+const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+
+// 获取 Tyk Gateway 容器
+const container = docker.getContainer('tyk-gateway');
+
+// 状态查询 → GET  /api/gateway/status
+container.inspect()  →  { State: { Running, Status, StartedAt }, ... }
+
+// 启动 → POST /api/gateway/start
+container.start()
+
+// 停止 → POST /api/gateway/stop
+container.stop()
+
+// 重启 → POST /api/gateway/restart
+container.restart()
+```
+
+**服务 API 清单**（4 个端点）：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/api/gateway/status` | 容器运行状态 + Tyk 版本 + 端口映射 |
+| `POST` | `/api/gateway/start` | 启动 Tyk Gateway 容器 |
+| `POST` | `/api/gateway/stop` | 停止 Tyk Gateway 容器（确认后执行） |
+| `POST` | `/api/gateway/restart` | 重启 Tyk Gateway 容器 |
+
+**部署**：该服务与 Tyk Gateway 在同一台机器上运行，通过 Docker unix socket 通信。约 60 行代码，`npm install dockerode express` 即可启动。
 
 ### 2.3 Refine Data Provider → Tyk API 映射关系
-
-Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 Data Provider 做适配。
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -140,9 +177,9 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 #### 🟢 模块 A：网关仪表板（Gateway Dashboard）
 | # | 功能 | 数据来源 | 说明 |
 |---|------|---------|------|
-| A1 | 网关运行状态展示（版本号、状态、Redis 连通性） | `GET /hello`（经代理转发） | status: pass/fail + version |
+| A1 | 网关运行状态展示（版本号、状态、Redis 连通性） | `GET /hello`（前端直调） | status: pass/fail + version |
 | A2 | API 健康指标列表（请求率/延迟/错误数） | `GET /tyk/health/` 遍历 | 每个 API 一张状态卡 |
-| A3 | 一键重载网关 | 代理触发 reload | 确认弹窗 + 结果反馈 |
+| A3 | 一键重载网关 | 前端直调 `/tyk/reload/` | 确认弹窗 + 结果反馈 |
 
 #### 🟢 模块 B：API 服务管理（API Definitions）
 | # | 功能 | 数据来源 | 说明 |
@@ -163,6 +200,14 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 | C4 | 吊销密钥 | `DELETE /tyk/keys/{keyId}` | 确认弹窗 |
 | C5 | 搜索密钥 | 前端过滤 | |
 
+#### 🟢 模块 E：网关管理（Gateway Lifecycle）
+| # | 功能 | 数据来源 | 说明 |
+|---|------|---------|------|
+| E1 | 查看 Tyk Gateway 容器运行状态 | Docker 管理服务→dockerode | 运行中/已停止/重启中 + Tyk版本 |
+| E2 | 启动 Tyk Gateway | 同上 | 确认后执行，显示结果 |
+| E3 | 停止 Tyk Gateway | 同上 | 确认弹窗，显示结果 |
+| E4 | 重启 Tyk Gateway | 同上 | 确认后执行，显示结果 |
+
 ### 3.2 v1 不覆盖（明确划给 v2）
 
 | 功能 | 理由 |
@@ -173,7 +218,6 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 | 导入/导出 Swagger/OAS | 可选，v2 考虑 |
 | 网关自身 tyk.conf 编辑 | 风险高，需谨慎设计 |
 | 服务业务属性（机构/出入参/服务编码） | 这是 v2 的定位 |
-| **Docker 管理（启停 Tyk）** | v1 手动管理，v2 如需再加 |
 | **日志查看（Pump → MongoDB）** | v1 不做，v2 再做日志查询服务 |
 | 统计聚合图表（趋势/占比） | v2 随日志查询一起做 |
 
@@ -189,6 +233,7 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 ├──────────┬───────────────────────────────────────────────┤
 │          │                                               │
 │  ⚡ 仪表板│   (主内容区)                                   │
+│  🔌 网关  │                                               │
 │  🔌 服务  │                                               │
 │  🔑 密钥  │                                               │
 │  ⚙ 设置   │                                               │
@@ -230,7 +275,37 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 - 自动轮询刷新（可配置间隔）
 - 一键重载按钮（`GET /tyk/reload/`）
 
-#### 4.2.2 🔌 服务管理（API Definitions）
+#### 4.2.2 🔌 网关管理（Gateway Lifecycle）
+
+**数据来源：** Docker 管理服务（Node.js + dockerode，`localhost:3001`）
+
+**展示内容：**
+```
+┌──────────────────────────────────────────────────────────┐
+│  🔌 Tyk Gateway 管理                                     │
+│                                                           │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │  容器状态: ● 运行中 (up 3d 12h)                      │ │
+│  │  容器名: tyk-gateway                                 │ │
+│  │  Tyk 版本: v5.7.0                                    │ │
+│  │  监听端口: 8080 → 8080                               │ │
+│  │                                                       │ │
+│  │  [▶ 启动] [⏹ 停止] [🔄 重启]                          │ │
+│  └──────────────────────────────────────────────────────┘ │
+│                                                           │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │  关联容器:                                            │ │
+│  │  ● Redis     tyk-redis   6379→6379                   │ │
+│  └──────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────┘
+```
+
+**功能点：**
+- Tyk Gateway Docker 容器运行状态（通过 dockerode `container.inspect()`）
+- 启动/停止/重启（确认弹窗，操作后轮询状态直到完成）
+- 操作历史（最近操作的 Timeline）
+
+#### 4.2.3 🔌 服务管理（API Definitions）
 
 沿用原设计文档的 Tab 分区方案，但 v1 表单**简化为核心字段**：
 
@@ -245,16 +320,17 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 
 > 详细字段映射见原设计文档（Tab 1-6）。Tab 7-10（高级设置/版本管理/端点配置/详细日志）划入 v2。
 
-#### 4.2.3 🔑 密钥管理
+#### 4.2.4 🔑 密钥管理
 
 沿用原设计文档方案，v1 完整覆盖。
 
-#### 4.2.4 ⚙ 设置
+#### 4.2.5 ⚙ 设置
 
 | 设置项 | 说明 |
 |--------|------|
 | Tyk Gateway 地址 | 如 `http://localhost:8080` |
 | API Secret | `x-tyk-authorization` Header 值 |
+| Docker 管理服务地址 | 默认 `http://localhost:3001` |
 | 轮询间隔 | 默认 10s |
 | 测试连接 | 验证 Tyk Gateway 连通性 |
 
@@ -287,10 +363,11 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 |------|------|
 | Tyk Gateway API 字段繁多 | 分阶段实现，v1 仅核心字段，schema 驱动渐进补全 |
 | Tyk Gateway OSS 无内置 analytics 查询 API | v1 不做日志查询，v2 借助 Tyk Pump → MongoDB + 查询服务 |
-| 每次修改需 reload（短暂中断） | 自动 reload、加载状态指示 |
+| 每次修改需 reload（短暂中断） | Data Provider 中自动 reload、加载状态指示 |
 | Gateway 连接中断 | 健康检查失败时全局 Banner 提示 + 自动重试 |
-| RawRequest/RawResponse 含敏感数据 | v2 后端查询服务负责脱敏，v1 不涉及 |
+| Docker 操作可能造成服务中断 | 启停前确认弹窗 + 操作后状态轮询 + 错误降级处理 |
 | Tyk 不是标准 REST API | Refine Data Provider 层做适配，页面代码不关心 |
+| Docker socket 权限 | 运行 dockerode 的 Node.js 进程需加入 docker 用户组 |
 
 ---
 
@@ -305,6 +382,7 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 | Redis | 6379 |
 | MongoDB（Pump 存储） | 27017 |
 | PostgreSQL | 5432 |
+| Docker 管理服务 | 3001 |
 
 ### B. 相关 GitHub 仓库
 
@@ -315,6 +393,7 @@ Tyk Gateway 管理 API 不是标准 RESTful，但可以通过 Refine 自定义 D
 | Tyk Operator (K8s) | https://github.com/TykTechnologies/tyk-operator |
 | Tyk Sync (GitOps) | https://github.com/TykTechnologies/tyk-sync |
 | Tyk Swagger Definitions | https://github.com/TykTechnologies/tyk-swagger-definitions |
+| dockerode | https://github.com/apocas/dockerode |
 
 ### C. 参考文档
 
