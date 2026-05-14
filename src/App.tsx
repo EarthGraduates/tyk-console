@@ -14,7 +14,7 @@ import { App as AntdApp } from "antd";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import authProvider from "./providers/auth";
-import { dataProvider } from "./providers/data";
+import { dataProviderMap } from "./providers/data";
 import { supabaseClient } from "./providers/supabase-client";
 
 function App() {
@@ -27,7 +27,7 @@ function App() {
             <DevtoolsProvider>
               <Refine
                 notificationProvider={useNotificationProvider}
-                dataProvider={dataProvider}
+                dataProvider={dataProviderMap}
                 liveProvider={liveProvider(supabaseClient)}
                 authProvider={authProvider}
                 routerProvider={routerProvider}
