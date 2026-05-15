@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, Form, Input, Button, Space, Typography, message } from "antd";
+import { Card, Form, Input, Button, Space, Typography, App } from "antd";
 import { CheckCircleOutlined, EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
 
 const { Text } = Typography;
@@ -7,6 +7,7 @@ const { Text } = Typography;
 export default function SettingsPage() {
   const [form] = Form.useForm();
   const [showSecret, setShowSecret] = useState(false);
+  const { message } = App.useApp();
 
   const onFinish = (values: any) => {
     localStorage.setItem("tyk_gateway_url", values.gatewayUrl);

@@ -1,5 +1,5 @@
 import { useList, useCreate, useDelete, useOne } from "@refinedev/core";
-import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, message } from "antd";
+import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App } from "antd";
 import { PlusOutlined, CopyOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -12,6 +12,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
 }) {
   const [form] = Form.useForm();
   const { mutate: create } = useCreate({ dataProviderName: "tyk" });
+  const { message } = App.useApp();
   const [creating, setCreating] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
 
