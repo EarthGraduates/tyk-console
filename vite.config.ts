@@ -3,4 +3,17 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      // Proxy Tyk Gateway API in dev
+      "/tyk": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+      "/hello": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+      },
+    },
+  },
 });

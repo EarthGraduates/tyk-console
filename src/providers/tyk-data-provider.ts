@@ -7,7 +7,7 @@ const STORAGE_KEY_SECRET = "tyk_secret";
 const STORAGE_KEY_AUTO_RELOAD = "tyk_auto_reload";
 
 export function getGatewayUrl(): string {
-  return localStorage.getItem(STORAGE_KEY_GATEWAY) || "http://localhost:8080";
+  return localStorage.getItem(STORAGE_KEY_GATEWAY) || "";
 }
 
 export function getSecret(): string {
