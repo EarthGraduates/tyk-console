@@ -1,3 +1,13 @@
+/**
+ * 顶部 Header 组件（Refine 脚手架模板代码，当前未使用）
+ *
+ * @description
+ * Refine ThemedLayout 的 Header 组件，包含用户头像/姓名展示和亮暗模式切换开关。
+ * 当前项目使用自定义 AppLayout（侧边栏模式），此组件未启用。
+ *
+ * @module components/header
+ */
+
 import type { RefineThemedLayoutHeaderProps } from '@refinedev/antd';
 import { useGetIdentity } from '@refinedev/core';
 import {

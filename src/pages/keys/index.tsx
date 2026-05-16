@@ -1,3 +1,21 @@
+/**
+ * 密钥管理页面
+ *
+ * @description
+ * Tyk API Token 的全生命周期管理界面。
+ * - 创建密钥弹窗：选择授权 API + 速率/配额/过期时间配置，成功后展示密钥值（一次性查看）
+ * - 编辑密钥：预填已有数据，修改速率/配额/过期
+ * - 吊销密钥：确认弹窗后删除
+ * - 列表展示：Key ID / 授权 API / 状态标签 / 配额 / 速率 / 有效期
+ *
+ * ## 设计约束
+ * - Tyk 创建密钥必须指定 access_rights（授权 API），已有 API 下拉选择器
+ * - 密钥值仅在创建成功时展示一次，关闭后 Tyk 不再返回原始值
+ * - 列表数据需逐条查询详情（Tyk 列表接口不返回元数据）
+ *
+ * @module pages/keys
+ */
+
 import { useList, useCreate, useUpdate, useDelete } from '@refinedev/core';
 import { Table, Form, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, Select, App, Typography, Alert } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';

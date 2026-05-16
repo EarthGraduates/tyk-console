@@ -1,3 +1,19 @@
+/**
+ * Supabase 认证 Provider（Refine 脚手架模板）
+ *
+ * @description
+ * 实现 Refine AuthProvider 接口，基于 Supabase Auth 提供：
+ * - 邮箱/密码登录 + 注册
+ * - OAuth 第三方登录
+ * - 密码重置 + 忘记密码
+ * - Session 持久化（cookie-based）
+ *
+ * 当前项目使用此 provider 控制页面访问，
+ * 所有登录用户共享同一套 Tyk API Secret。
+ *
+ * @module providers/auth
+ */
+
 import { AuthProvider } from '@refinedev/core';
 import { supabaseClient } from './supabase-client';
 
