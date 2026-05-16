@@ -11,7 +11,7 @@ export function getGatewayUrl(): string {
 }
 
 export function getSecret(): string {
-  return localStorage.getItem(STORAGE_KEY_SECRET) || "";
+  return localStorage.getItem(STORAGE_KEY_SECRET) || "foo";
 }
 
 function authHeaders(): Record<string, string> {
