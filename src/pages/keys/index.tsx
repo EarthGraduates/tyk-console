@@ -1,5 +1,5 @@
 import { useList, useCreate, useUpdate, useDelete } from "@refinedev/core";
-import { Table, Form, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, App } from "antd";
+import { Table, Form, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, Select, App } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useState } from "react";
 
@@ -20,7 +20,13 @@ function KeyModal({ open, onClose, editKey }: {
   const { message } = App.useApp();
   const { mutate: createKey } = useCreate({ resource: "keys", dataProviderName: "tyk" });
   const { mutate: updateKey } = useUpdate({ resource: "keys", dataProviderName: "tyk" });
+  const { result: apiResult } = useList({ resource: "apis", dataProviderName: "tyk" });
   const [submitting, setSubmitting] = useState(false);
+
+  const apiOptions = (apiResult?.data || []).map((api: any) => ({
+    label: `${api.name} (${api.api_id})`,
+    value: api.api_id,
+  }));
 
   const onFinish = (values: any) => {
     setSubmitting(true);
@@ -29,6 +35,18 @@ function KeyModal({ open, onClose, editKey }: {
     if (values.per != null) payload.per = values.per;
     if (values.quota_max != null) payload.quota_max = values.quota_max;
     if (values.expires_at) payload.expires = Math.floor(values.expires_at.valueOf() / 1000);
+
+    // Tyk requires access_rights — assign to selected API
+    if (values.api_id) {
+      const targetApi = (apiResult?.data || []).find((a: any) => a.api_id === values.api_id);
+      payload.access_rights = {
+        [values.api_id]: {
+          api_id: values.api_id,
+          api_name: targetApi?.name || values.api_id,
+          versions: ["Default"],
+        },
+      };
+    }
 
     if (editKey) {
       updateKey({ resource: "keys", id: editKey.key_id, values: payload }, {
@@ -63,6 +81,17 @@ function KeyModal({ open, onClose, editKey }: {
           expires_at: editKey?.expires ? new Date(editKey.expires * 1000) : undefined,
         }}
       >
+        <Form.Item label="授权 API" name="api_id" rules={[{ required: true, message: "请选择授权的 API" }]}
+          help="该密钥可以访问哪个 API，必选">
+          <Select
+            placeholder="选择一个 API"
+            options={apiOptions}
+            showSearch
+            filterOption={(input, option) =>
+              (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+            }
+          />
+        </Form.Item>
         <Form.Item label="速率 (请求数)" name="rate" help="每秒允许的请求数，留空或 0 表示不限制"><InputNumber min={0} style={{ width: "100%" }} /></Form.Item>
         <Form.Item label="时间窗口 (s)" name="per" help="速率计算的时间窗口（秒），默认 1 秒"><InputNumber min={0} style={{ width: "100%" }} /></Form.Item>
         <Form.Item label="最大配额" name="quota_max" help="密钥生命周期内允许的总请求数，-1 表示无限制"><InputNumber min={-1} style={{ width: "100%" }} /></Form.Item>
