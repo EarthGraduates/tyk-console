@@ -158,6 +158,17 @@ export default function KeyList() {
 
   const columns = [
     { title: "Key ID", dataIndex: "key_id", key: "key_id", ellipsis: true, width: 200 },
+    {
+      title: "授权 API",
+      key: "apis",
+      render: (_: any, r: any) => {
+        const rights = r.access_rights;
+        if (!rights) return <Tag>未知</Tag>;
+        return Object.values(rights).map((a: any) => (
+          <Tag key={a.api_id} color="blue">{a.api_name || a.api_id}</Tag>
+        ));
+      },
+    },
     { title: "状态", key: "status", render: (_: any, r: any) => statusTag(r) },
     { title: "配额", dataIndex: "quota_max", key: "quota", render: (v: number) => v || "∞" },
     { title: "速率", dataIndex: "rate", key: "rate", render: (v: number) => v || "∞" },
