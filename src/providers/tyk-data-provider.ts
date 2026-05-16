@@ -119,9 +119,15 @@ export const tykDataProvider: DataProvider = {
       return { data: Array.isArray(data) ? data : [], total: data.length };
     }
     if (resource === "keys") {
-      const raw = (await tykFetch("keys/")) || {};
-      const keys = raw.keys || [];
-      return { data: keys, total: keys.length };
+      try {
+        const raw = (await tykFetch("keys/")) || {};
+        const keys = raw.keys || [];
+        return { data: keys, total: keys.length };
+      } catch (e: any) {
+        // Tyk OSS disables key listing by default — degrade gracefully
+        console.warn("Key listing unavailable:", e.message);
+        return { data: [], total: 0 };
+      }
     }
     throw new Error(`Unknown resource: ${resource}`);
   },
