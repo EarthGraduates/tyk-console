@@ -1,7 +1,9 @@
 import { useList, useCreate, useUpdate, useDelete } from "@refinedev/core";
-import { Table, Form, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, Select, App } from "antd";
+import { Table, Form, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, Select, App, Typography, Alert } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { useState } from "react";
+
+const { Text } = Typography;
 
 function statusTag(r: any) {
   const expiry = r.expires ? new Date(r.expires * 1000) : null;
@@ -22,6 +24,7 @@ function KeyModal({ open, onClose, editKey }: {
   const { mutate: updateKey } = useUpdate({ resource: "keys", dataProviderName: "tyk" });
   const { result: apiResult } = useList({ resource: "apis", dataProviderName: "tyk" });
   const [submitting, setSubmitting] = useState(false);
+  const [createdKey, setCreatedKey] = useState<any>(null);
 
   const apiOptions = (apiResult?.data || []).map((api: any) => ({
     label: `${api.name} (${api.api_id})`,
@@ -36,7 +39,6 @@ function KeyModal({ open, onClose, editKey }: {
     if (values.quota_max != null) payload.quota_max = values.quota_max;
     if (values.expires_at) payload.expires = Math.floor(values.expires_at.valueOf() / 1000);
 
-    // Tyk requires access_rights — assign to selected API
     if (values.api_id) {
       const targetApi = (apiResult?.data || []).find((a: any) => a.api_id === values.api_id);
       payload.access_rights = {
@@ -55,56 +57,89 @@ function KeyModal({ open, onClose, editKey }: {
       });
     } else {
       createKey({ resource: "keys", values: payload }, {
-        onSuccess: () => { message.success("密钥创建成功"); setSubmitting(false); onClose(); },
+        onSuccess: (data: any) => {
+          setSubmitting(false);
+          setCreatedKey(data.data);
+          message.success("密钥创建成功");
+        },
         onError: (e: any) => { message.error("创建失败: " + e.message); setSubmitting(false); },
       });
     }
   };
 
+  const handleClose = () => {
+    setCreatedKey(null);
+    onClose();
+  };
+
   return (
     <Modal
-      title={editKey ? "编辑密钥" : "创建密钥"}
+      title={createdKey ? "密钥创建成功" : (editKey ? "编辑密钥" : "创建密钥")}
       open={open}
-      onCancel={onClose}
+      onCancel={handleClose}
       width={480}
       footer={null}
       destroyOnClose
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-        initialValues={{
-          rate: editKey?.rate,
-          per: editKey?.per,
-          quota_max: editKey?.quota_max,
-          expires_at: editKey?.expires ? new Date(editKey.expires * 1000) : undefined,
-        }}
-      >
-        <Form.Item label="授权 API" name="api_id" rules={[{ required: true, message: "请选择授权的 API" }]}
-          help="该密钥可以访问哪个 API，必选">
-          <Select
-            placeholder="选择一个 API"
-            options={apiOptions}
-            showSearch
-            filterOption={(input, option) =>
-              (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
-            }
-          />
-        </Form.Item>
-        <Form.Item label="速率 (请求数)" name="rate" help="每秒允许的请求数，留空或 0 表示不限制"><InputNumber min={0} style={{ width: "100%" }} /></Form.Item>
-        <Form.Item label="时间窗口 (s)" name="per" help="速率计算的时间窗口（秒），默认 1 秒"><InputNumber min={0} style={{ width: "100%" }} /></Form.Item>
-        <Form.Item label="最大配额" name="quota_max" help="密钥生命周期内允许的总请求数，-1 表示无限制"><InputNumber min={-1} style={{ width: "100%" }} /></Form.Item>
-        <Form.Item label="过期时间" name="expires_at" help="密钥将在该时间后自动失效，留空表示永不过期"><DatePicker showTime style={{ width: "100%" }} /></Form.Item>
-        <div style={{ textAlign: "right" }}>
-          <Space>
-            <Button onClick={onClose}>取消</Button>
-            <Button type="primary" htmlType="submit" loading={submitting}>
-              {editKey ? "保存修改" : "创建密钥"}
-            </Button>
-          </Space>
+      {createdKey ? (
+        <div>
+          <Alert type="success" showIcon message="密钥已创建" description="请立即复制保存，关闭后将无法再查看密钥值" style={{ marginBottom: 16 }} />
+          <Form layout="vertical">
+            <Form.Item label="Key ID">
+              <InputNumber value={createdKey.key_id} disabled style={{ width: "100%" }} />
+              <Text copyable code style={{ display: "block", marginTop: 4 }}>{createdKey.key_id}</Text>
+            </Form.Item>
+            {createdKey.key && (
+              <Form.Item label="密钥值 (Key)" help="使用此值作为 API 请求的 Authorization 头">
+                <Text copyable code style={{ display: "block", padding: 8, background: "#f5f5f5", borderRadius: 4 }}>{createdKey.key}</Text>
+              </Form.Item>
+            )}
+            {createdKey.api_id && (
+              <Form.Item label="授权 API"><Text>{createdKey.api_id}</Text></Form.Item>
+            )}
+            {createdKey.rate != null && <Form.Item label="速率"><Text>{createdKey.rate}/{createdKey.per}s</Text></Form.Item>}
+          </Form>
+          <div style={{ textAlign: "right", marginTop: 16 }}>
+            <Button type="primary" onClick={handleClose}>关闭</Button>
+          </div>
         </div>
-      </Form>
+      ) : (
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={onFinish}
+          initialValues={{
+            rate: editKey?.rate,
+            per: editKey?.per,
+            quota_max: editKey?.quota_max,
+            expires_at: editKey?.expires ? new Date(editKey.expires * 1000) : undefined,
+          }}
+        >
+          <Form.Item label="授权 API" name="api_id" rules={[{ required: true, message: "请选择授权的 API" }]}
+            help="该密钥可以访问哪个 API，必选">
+            <Select
+              placeholder="选择一个 API"
+              options={apiOptions}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </Form.Item>
+          <Form.Item label="速率 (请求数)" name="rate" help="每秒允许的请求数，留空或 0 表示不限制"><InputNumber min={0} style={{ width: "100%" }} /></Form.Item>
+          <Form.Item label="时间窗口 (s)" name="per" help="速率计算的时间窗口（秒），默认 1 秒"><InputNumber min={0} style={{ width: "100%" }} /></Form.Item>
+          <Form.Item label="最大配额" name="quota_max" help="密钥生命周期内允许的总请求数，-1 表示无限制"><InputNumber min={-1} style={{ width: "100%" }} /></Form.Item>
+          <Form.Item label="过期时间" name="expires_at" help="密钥将在该时间后自动失效，留空表示永不过期"><DatePicker showTime style={{ width: "100%" }} /></Form.Item>
+          <div style={{ textAlign: "right" }}>
+            <Space>
+              <Button onClick={handleClose}>取消</Button>
+              <Button type="primary" htmlType="submit" loading={submitting}>
+                {editKey ? "保存修改" : "创建密钥"}
+              </Button>
+            </Space>
+          </div>
+        </Form>
+      )}
     </Modal>
   );
 }

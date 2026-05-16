@@ -121,7 +121,9 @@ export const tykDataProvider: DataProvider = {
     if (resource === "keys") {
       try {
         const raw = (await tykFetch("keys/")) || {};
-        const keys = raw.keys || [];
+        const keys = (raw.keys || []).map((k: string) =>
+          typeof k === "string" ? { key_id: k, raw_key: k } : k
+        );
         return { data: keys, total: keys.length };
       } catch (e: any) {
         // Tyk OSS disables key listing by default — degrade gracefully
