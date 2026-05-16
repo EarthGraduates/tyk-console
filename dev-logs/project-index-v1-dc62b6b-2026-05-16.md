@@ -1,6 +1,6 @@
 # 项目索引 — v1
 
-> **版本**：`5fdcc9b` | **日期**：2026-05-16
+> **版本**：`dc62b6b` | **日期**：2026-05-16
 > **项目**：ichse-asset-share-center — Tyk Gateway OSS 管理界面
 > **仓库**：git@github.com:EarthGraduates/ichse-asset-share-center.git
 
@@ -10,7 +10,7 @@
 
 | 项 | 值 |
 |----|-----|
-| Git commit | `5fdcc9b` |
+| Git commit | `dc62b6b` |
 | 版本阶段 | v1 开发中 |
 | 框架 | Refine v5.0.8 + Ant Design v5.23.0 + React 19.1.0 |
 | Node | ≥18 |
@@ -265,7 +265,7 @@ git add -A && git commit -m "..." && git push
 
 | 日期 | Commit | 变更摘要 |
 |------|--------|---------|
-| 2026-05-16 | `5fdcc9b` | 阿里规约接入 + 全文件 JSDoc 注释 + 关键 Bug 修复 |
+| 2026-05-16 | `dc62b6b` | 阿里规约接入 + 全文件 JSDoc 注释 + 关键 Bug 修复 |
 | 2026-05-15 | `e788aac` | v1 第一轮开发总结 |
 | 2026-05-15 | 多 commits | Stage 0-4 页面开发 |
 | 2026-05-14 | `7ac9dfa` | 设计文档 + 实施计划初稿 |
