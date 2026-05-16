@@ -13,6 +13,7 @@ interface ColorModeContextType {
 }
 
 export const ColorModeContext = createContext<ColorModeContextType>(
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
   {} as ColorModeContextType,
 );
 

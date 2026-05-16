@@ -1,9 +1,29 @@
+/**
+ * 网关管理页面
+ *
+ * @description
+ * 通过 Docker 管理服务（dockerode）控制 Tyk Gateway 容器的生命周期。
+ * 支持启动/停止/重启操作，所有操作需确认弹窗。
+ *
+ * ## 数据来源
+ * Docker 管理服务（Node.js + dockerode, :3001）→ Docker Daemon
+ * - GET  /api/gateway/status → 容器运行状态
+ * - POST /api/gateway/{start,stop,restart} → 启停控制
+ *
+ * ## 降级策略
+ * Docker 管理服务不可达时：所有按钮灰色 + Alert 提示，
+ * 仪表板和 API 管理不受影响（独立走 Tyk API）。
+ *
+ * @component
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Space, Tag, Typography, Modal, Spin, Alert } from 'antd';
 import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, CloudServerOutlined } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 
+/** Docker 管理服务返回的容器状态 */
 interface GatewayStatus {
   running: boolean;
   status: string;
@@ -12,10 +32,12 @@ interface GatewayStatus {
   ports: string;
 }
 
+/** 从 localStorage 读取 Docker 管理服务地址 */
 function getDockerUrl() {
   return localStorage.getItem('tyk_docker_url') || 'http://localhost:3001';
 }
 
+/** Docker 管理服务 GET 请求 */
 async function dockerGet(path: string) {
   try {
     const r = await fetch(`${getDockerUrl()}${path}`);
@@ -25,6 +47,7 @@ async function dockerGet(path: string) {
   }
 }
 
+/** Docker 管理服务 POST 请求 */
 async function dockerPost(path: string) {
   const r = await fetch(`${getDockerUrl()}${path}`, { method: 'POST' });
   return await r.json();
@@ -36,6 +59,7 @@ export default function GatewayPage() {
   const [dockerDown, setDockerDown] = useState(false);
   const [operating, setOperating] = useState(false);
 
+  /** 获取容器运行状态 */
   const fetchStatus = useCallback(async () => {
     setLoading(true);
     const s = await dockerGet('/api/gateway/status');
@@ -50,6 +74,10 @@ export default function GatewayPage() {
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
+  /**
+   * 容器启停操作（需确认弹窗）
+   * @param action - 启动/停止/重启
+   */
   const handleAction = async (action: string) => {
     Modal.confirm({
       title: `确认${action}`,
@@ -58,7 +86,7 @@ export default function GatewayPage() {
         setOperating(true);
         const map: Record<string, string> = { 启动: 'start', 停止: 'stop', 重启: 'restart' };
         await dockerPost(`/api/gateway/${map[action]}`);
-        await new Promise((r) => setTimeout(r, 2000)); // wait for container state
+        await new Promise((r) => setTimeout(r, 2000)); // 等待容器状态稳定
         await fetchStatus();
         setOperating(false);
       },
@@ -69,6 +97,7 @@ export default function GatewayPage() {
     <div style={{ padding: 24, maxWidth: 700 }}>
       <Title level={4}><CloudServerOutlined /> 网关管理</Title>
 
+      {/* Docker 服务不可达降级提示 */}
       {dockerDown && !loading && (
         <Alert
           type="warning"
@@ -79,8 +108,10 @@ export default function GatewayPage() {
         />
       )}
 
+      {/* 容器状态卡片 */}
       <Card style={{ marginBottom: 16 }}>
-        {loading ? <Spin /> : status ? (
+        {loading && <Spin />}
+        {!loading && status && (
           <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             <Space>
               <Tag color={status.running ? 'green' : 'red'}>
@@ -88,51 +119,19 @@ export default function GatewayPage() {
               </Tag>
               <Text strong>{status.status}</Text>
             </Space>
-            <div>
-              <Text type="secondary">Tyk 版本 </Text>
-              <Text strong>{status.version || '—'}</Text>
-            </div>
-            <div>
-              <Text type="secondary">端口 </Text>
-              <Text>{status.ports || '—'}</Text>
-            </div>
-            <div>
-              <Text type="secondary">启动时间 </Text>
-              <Text>{status.startedAt ? new Date(status.startedAt).toLocaleString() : '—'}</Text>
-            </div>
+            <div><Text type="secondary">Tyk 版本 </Text><Text strong>{status.version || '—'}</Text></div>
+            <div><Text type="secondary">端口 </Text><Text>{status.ports || '—'}</Text></div>
+            <div><Text type="secondary">启动时间 </Text><Text>{status.startedAt ? new Date(status.startedAt).toLocaleString() : '—'}</Text></div>
           </Space>
-        ) : null}
+        )}
       </Card>
 
+      {/* 操作按钮 */}
       <Space>
-        <Button
-          icon={<PlayCircleOutlined />}
-          onClick={() => handleAction('启动')}
-          loading={operating}
-          disabled={dockerDown || status?.running}
-        >
-          启动
-        </Button>
-        <Button
-          icon={<PauseCircleOutlined />}
-          danger
-          onClick={() => handleAction('停止')}
-          loading={operating}
-          disabled={dockerDown || !status?.running}
-        >
-          停止
-        </Button>
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={() => handleAction('重启')}
-          loading={operating}
-          disabled={dockerDown || !status?.running}
-        >
-          重启
-        </Button>
-        <Button icon={<ReloadOutlined />} onClick={fetchStatus} disabled={dockerDown}>
-          刷新状态
-        </Button>
+        <Button icon={<PlayCircleOutlined />} onClick={() => handleAction('启动')} loading={operating} disabled={dockerDown || status?.running}>启动</Button>
+        <Button icon={<PauseCircleOutlined />} danger onClick={() => handleAction('停止')} loading={operating} disabled={dockerDown || !status?.running}>停止</Button>
+        <Button icon={<ReloadOutlined />} onClick={() => handleAction('重启')} loading={operating} disabled={dockerDown || !status?.running}>重启</Button>
+        <Button icon={<ReloadOutlined />} onClick={fetchStatus} disabled={dockerDown}>刷新状态</Button>
       </Space>
     </div>
   );

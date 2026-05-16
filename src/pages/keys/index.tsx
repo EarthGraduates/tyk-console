@@ -74,7 +74,11 @@ function KeyModal({ open, onClose, editKey }: {
 
   return (
     <Modal
-      title={createdKey ? '密钥创建成功' : (editKey ? '编辑密钥' : '创建密钥')}
+      title={(() => {
+        if (createdKey) return '密钥创建成功';
+        if (editKey) return '编辑密钥';
+        return '创建密钥';
+      })()}
       open={open}
       onCancel={handleClose}
       width={480}

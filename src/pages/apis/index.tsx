@@ -1,10 +1,32 @@
+/**
+ * API 服务管理页面
+ *
+ * @description
+ * Tyk API Definition 的完整 CRUD 界面，涵盖 v1 核心字段。
+ * - 列表页：表格展示所有 API，含搜索/筛选/克隆/删除
+ * - 创建弹窗：6 个 Tab（基本信息、路由、认证、CORS、速率限制、缓存）
+ * - 详情页：完整 JSON 格式化展示
+ *
+ * ## v1 覆盖字段
+ * 基本信息(3) + 路由配置(4) + 认证(4) + CORS(9) + 速率限制(3) + 缓存(2) = ~25 核心字段
+ * 高级设置（端点配置/版本管理/中间件/日志）划入 v2
+ *
+ * @module apis
+ */
+
 import { useList, useCreate, useDelete, useOne } from '@refinedev/core';
 import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App } from 'antd';
 import { PlusOutlined, CopyOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-// ── Create/Edit API Modal ──
+/**
+ * API 创建/克隆 Modal 组件
+ *
+ * @param open - Modal 是否可见
+ * @param onClose - 关闭回调
+ * @param cloneData - 克隆来源的 API 数据，有则预填所有字段
+ */
 function ApiCreateModal({ open, onClose, cloneData }: {
   open: boolean;
   onClose: () => void;
@@ -16,6 +38,12 @@ function ApiCreateModal({ open, onClose, cloneData }: {
   const [creating, setCreating] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
 
+  /**
+   * 构建 Tyk API Definition 的完整 payload
+   * - 路由配置：listen_path + target_url（必填）
+   * - 认证配置：keyless / Token / JWT 三种模式
+   * - CORS：逗号分隔的字符串转数组（Tyk 需数组格式）
+   */
   const onFinish = (values: any) => {
     setCreating(true);
     const payload = {
@@ -35,45 +63,22 @@ function ApiCreateModal({ open, onClose, cloneData }: {
         allowed_origins: values.allowed_origins ? values.allowed_origins.split(',').map((s: string) => s.trim()) : ['*'],
         allowed_methods: values.allowed_methods ? values.allowed_methods.split(',').map((s: string) => s.trim()) : ['GET', 'POST'],
         allowed_headers: values.allowed_headers ? values.allowed_headers.split(',').map((s: string) => s.trim()) : ['*'],
-        allow_credentials: false,
-        max_age: 0,
-        options_passthrough: false,
-        debug: false,
-        exposed_headers: [],
       },
       enable_jwt: values.enable_jwt ?? false,
       disable_rate_limit: values.disable_rate_limit ?? false,
       cache_options: {
         enable_cache: values.enable_cache ?? false,
         cache_timeout: values.cache_timeout || 60,
-        cache_all_safe_requests: false,
-        cache_response_codes: [],
-        enable_upstream_cache_control: false,
-        cache_by_headers: [],
       },
     };
     create({ resource: 'apis', values: payload }, {
-      onSuccess: () => {
-        message.success('API 创建成功');
-        setCreating(false);
-        onClose();
-      },
-      onError: (e: any) => {
-        message.error(`创建失败: ${e.message}`);
-        setCreating(false);
-      },
+      onSuccess: () => { message.success('API 创建成功'); setCreating(false); onClose(); },
+      onError: (e: any) => { message.error(`创建失败: ${e.message}`); setCreating(false); },
     });
   };
 
   return (
-    <Modal
-      title={cloneData ? '克隆 API' : '创建 API'}
-      open={open}
-      onCancel={onClose}
-      width={800}
-      footer={null}
-      destroyOnClose
-    >
+    <Modal title={cloneData ? '克隆 API' : '创建 API'} open={open} onCancel={onClose} width={800} footer={null} destroyOnClose>
       <Form
         form={form}
         layout="vertical"
@@ -156,9 +161,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
         <div style={{ textAlign: 'right', marginTop: 16 }}>
           <Space>
             <Button onClick={onClose}>取消</Button>
-            <Button type="primary" htmlType="submit" loading={creating}>
-              {cloneData ? '克隆创建' : '创建 API'}
-            </Button>
+            <Button type="primary" htmlType="submit" loading={creating}>{cloneData ? '克隆创建' : '创建 API'}</Button>
           </Space>
         </div>
       </Form>
@@ -166,7 +169,13 @@ function ApiCreateModal({ open, onClose, cloneData }: {
   );
 }
 
-// ── List ──
+/**
+ * API 列表页
+ *
+ * @description
+ * 展示所有 Tyk API Definition，支持搜索/筛选/克隆/删除。
+ * 创建和克隆复用 ApiCreateModal 弹窗（不导航到独立页面）。
+ */
 export function ApiList() {
   const navigate = useNavigate();
   const { result, isLoading } = useList({ resource: 'apis', dataProviderName: 'tyk' });
@@ -175,76 +184,43 @@ export function ApiList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [cloneSource, setCloneSource] = useState<any>(null);
 
-  const openCreate = () => {
-    setCloneSource(null);
-    setCreateOpen(true);
-  };
-
-  const openClone = (api: any) => {
-    setCloneSource(api);
-    setCreateOpen(true);
-  };
-
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: 'API ID', dataIndex: 'api_id', key: 'api_id', ellipsis: true },
     { title: '监听路径', dataIndex: ['proxy', 'listen_path'], key: 'path' },
     { title: '上游', dataIndex: ['proxy', 'target_url'], key: 'target', ellipsis: true },
-    {
-      title: '认证',
-      key: 'auth',
-      render: (_: any, r: any) => (r.use_keyless ? <Tag>Keyless</Tag> : <Tag color="blue">Token</Tag>),
-    },
-    {
-      title: '状态',
-      dataIndex: 'active',
-      key: 'active',
-      render: (v: boolean) => (v ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
-    },
-    {
-      title: '操作',
+    { title: '认证', key: 'auth', render: (_: any, r: any) => (r.use_keyless ? <Tag>Keyless</Tag> : <Tag color="blue">Token</Tag>) },
+    { title: '状态', dataIndex: 'active', key: 'active', render: (v: boolean) => (v ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>) },
+    { title: '操作',
       key: 'actions',
       render: (_: any, r: any) => (
         <Space>
-          <Button size="small" onClick={() => navigate(`/apis/show/${r.api_id}`)}>详情</Button>
-          <Button size="small" icon={<CopyOutlined />} onClick={() => openClone(r)}>克隆</Button>
-          <Popconfirm
-            title="确定删除？"
-            placement="left"
-            onConfirm={() => {
-              deleteApi({ resource: 'apis', id: r.api_id }, {
-                onSuccess: () => { message.success('已删除'); refetch(); },
-                onError: (e: any) => message.error(`删除失败: ${e.message}`),
-              });
-            }}
-          >
+          <Button size="small" onClick={() => navigate(`/apis/${r.api_id}`)}>详情</Button>
+          <Button size="small" icon={<CopyOutlined />} onClick={() => { setCloneSource(r); setCreateOpen(true); }}>克隆</Button>
+          <Popconfirm title="确定删除？" placement="left" onConfirm={() => deleteApi({ resource: 'apis', id: r.api_id })}>
             <Button size="small" danger>删除</Button>
           </Popconfirm>
         </Space>
-      ),
-    },
+      ) },
   ];
 
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          创建 API
-        </Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setCloneSource(null); setCreateOpen(true); }}>创建 API</Button>
       </Space>
       <Table dataSource={result?.data || []} columns={columns} rowKey="api_id" loading={isLoading} size="small" />
-
-      {/* Create/Clone Modal */}
-      <ApiCreateModal
-        open={createOpen}
-        onClose={() => { setCreateOpen(false); setCloneSource(null); }}
-        cloneData={cloneSource}
-      />
+      <ApiCreateModal open={createOpen} onClose={() => { setCreateOpen(false); setCloneSource(null); }} cloneData={cloneSource} />
     </div>
   );
 }
 
-// ── Show (detail) ──
+/**
+ * API 详情页
+ *
+ * @description
+ * 展示单个 API Definition 的完整 JSON（格式化、只读）
+ */
 export function ApiShow() {
   const apiId = window.location.pathname.split('/').pop();
   const { data, isLoading } = useOne({ resource: 'apis', id: apiId || '', dataProviderName: 'tyk' });

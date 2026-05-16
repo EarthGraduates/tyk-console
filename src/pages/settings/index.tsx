@@ -1,3 +1,21 @@
+/**
+ * 网关配置页面
+ *
+ * @description
+ * 存储和管理 Tyk Gateway 连接参数，所有配置存入浏览器 localStorage。
+ * - Tyk Gateway 地址 + API Secret（默认 'foo'，来自 Tyk docker-compose）
+ * - Docker 管理服务地址（网关启停控制）
+ * - 仪表板轮询间隔
+ * - 连接测试功能
+ *
+ * ## 安全说明
+ * Secret 存储在 localStorage，存在 XSS 泄露风险，
+ * v1 仅适用于内网/开发环境，生产环境需后端代理托管 Secret。
+ * Secret 输入框默认隐藏（password 类型），可点击切换显示。
+ *
+ * @component
+ */
+
 import { useState } from 'react';
 import { Card, Form, Input, Button, Space, Typography, App } from 'antd';
 import { CheckCircleOutlined, EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
@@ -9,6 +27,7 @@ export default function SettingsPage() {
   const [showSecret, setShowSecret] = useState(false);
   const { message } = App.useApp();
 
+  /** 保存配置到 localStorage */
   const onFinish = (values: any) => {
     localStorage.setItem('tyk_gateway_url', values.gatewayUrl);
     localStorage.setItem('tyk_secret', values.secret);
@@ -17,6 +36,7 @@ export default function SettingsPage() {
     message.success('配置已保存');
   };
 
+  /** 测试 Tyk Gateway 连通性（调用 /hello 端点） */
   const testConnection = async () => {
     const gw = form.getFieldValue('gatewayUrl') || 'http://localhost:8080';
     const secret = form.getFieldValue('secret') || '';
@@ -80,9 +100,7 @@ export default function SettingsPage() {
           </Form.Item>
 
           <Space>
-            <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>
-              保存配置
-            </Button>
+            <Button type="primary" htmlType="submit" icon={<CheckCircleOutlined />}>保存配置</Button>
             <Button onClick={testConnection}>测试连接</Button>
           </Space>
         </Form>
