@@ -13,6 +13,7 @@ interface TykHello {
 interface ApiHealth {
   api_id: string;
   name: string;
+  active: boolean;
   avg_upstream_latency: number;
   requests: number;
   success: number;
@@ -65,6 +66,7 @@ export default function Dashboard() {
             healths.push({
               api_id: api.api_id,
               name: api.name,
+              active: api.active ?? true,
               avg_upstream_latency: health.average_upstream_latency || 0,
               requests: health.requests || 0,
               success: health.success || 0,
@@ -125,7 +127,11 @@ export default function Dashboard() {
     { title: "请求", dataIndex: "requests", key: "requests" },
     { title: "成功", dataIndex: "success", key: "success", render: (v: number) => <Tag color="green">{v}</Tag> },
     { title: "错误", dataIndex: "error", key: "error", render: (v: number) => v > 0 ? <Tag color="red">{v}</Tag> : <Tag>0</Tag> },
-    { title: "状态", key: "status", render: (_: any, r: ApiHealth) => r.error > 0 ? <Tag color="warning">⚠</Tag> : <Tag color="success">🟢</Tag> },
+    { title: "状态", key: "status", render: (_: any, r: ApiHealth) =>
+      !r.active ? <Tag color="default">已停用</Tag> :
+      r.error > 0 ? <Tag color="warning">⚠ 异常</Tag> :
+      <Tag color="success">🟢 正常</Tag>
+    },
   ];
 
   // ── Stats ──
