@@ -43,7 +43,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           onClick={({ key }) => navigate(key)}
         />
       </Sider>
-      <Content style={{ background: "#f5f5f5" }}>{children}</Content>
+      <Content style={{ background: "#0087f5" }}>{children}</Content>
     </Layout>
   );
 }
