@@ -148,7 +148,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
 // ── List ──
 export function ApiList() {
   const navigate = useNavigate();
-  const { data, isLoading, refetch } = useList({ resource: "apis", dataProviderName: "tyk" });
+  const { result, isLoading } = useList({ resource: "apis", dataProviderName: "tyk" });
   const { mutate: deleteApi } = useDelete({ dataProviderName: "tyk" });
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -207,7 +207,7 @@ export function ApiList() {
           创建 API
         </Button>
       </Space>
-      <Table dataSource={data?.data || []} columns={columns} rowKey="api_id" loading={isLoading} size="small" />
+      <Table dataSource={result?.data || []} columns={columns} rowKey="api_id" loading={isLoading} size="small" />
 
       {/* Create/Clone Modal */}
       <ApiCreateModal

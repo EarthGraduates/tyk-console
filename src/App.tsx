@@ -61,6 +61,10 @@ function App() {
                 liveProvider={liveProvider(supabaseClient)}
                 authProvider={authProvider}
                 routerProvider={routerProvider}
+                resources={[
+                  { name: "apis", meta: { dataProviderName: "tyk" } },
+                  { name: "keys", meta: { dataProviderName: "tyk" } },
+                ]}
                 options={{ syncWithLocation: true, warnWhenUnsavedChanges: true, projectId: "Xo459U-5agjM8-PTCSc7" }}
               >
                 <Routes>
