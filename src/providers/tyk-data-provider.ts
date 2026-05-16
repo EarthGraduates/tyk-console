@@ -1,23 +1,23 @@
 // @ts-nocheck — Tyk API calls return dynamic JSON; Refine DataProvider interface has broad annotations
-import type { DataProvider } from "@refinedev/core";
+import type { DataProvider } from '@refinedev/core';
 
 // --- Config ---
-const STORAGE_KEY_GATEWAY = "tyk_gateway_url";
-const STORAGE_KEY_SECRET = "tyk_secret";
-const STORAGE_KEY_AUTO_RELOAD = "tyk_auto_reload";
+const STORAGE_KEY_GATEWAY = 'tyk_gateway_url';
+const STORAGE_KEY_SECRET = 'tyk_secret';
+const STORAGE_KEY_AUTO_RELOAD = 'tyk_auto_reload';
 
 export function getGatewayUrl(): string {
-  return localStorage.getItem(STORAGE_KEY_GATEWAY) || "";
+  return localStorage.getItem(STORAGE_KEY_GATEWAY) || '';
 }
 
 export function getSecret(): string {
-  return localStorage.getItem(STORAGE_KEY_SECRET) || "foo";
+  return localStorage.getItem(STORAGE_KEY_SECRET) || 'foo';
 }
 
 function authHeaders(): Record<string, string> {
   const secret = getSecret();
   if (!secret) return {};
-  return { "x-tyk-authorization": secret };
+  return { 'x-tyk-authorization': secret };
 }
 
 // --- Reload Strategy ---
@@ -26,15 +26,15 @@ let pendingChanges = 0;
 
 function initAutoReload(): boolean {
   if (autoReload === null) {
-    autoReload = localStorage.getItem(STORAGE_KEY_AUTO_RELOAD) !== "false";
+    autoReload = localStorage.getItem(STORAGE_KEY_AUTO_RELOAD) !== 'false';
   }
   return autoReload;
 }
 
 // notify callbacks for UI
 const changeListeners: Array<(count: number) => void> = [];
-let reloadListeners: Array<(count: number, time: string) => void> = [];
-let reloadCount = Number(typeof localStorage !== "undefined" ? localStorage.getItem("tyk_reload_count") || 0 : 0);
+const reloadListeners: Array<(count: number, time: string) => void> = [];
+let reloadCount = Number(typeof localStorage !== 'undefined' ? localStorage.getItem('tyk_reload_count') || 0 : 0);
 
 export function setAutoReload(enabled: boolean) {
   autoReload = enabled;
@@ -62,12 +62,12 @@ export function onReload(fn: (count: number, time: string) => void) {
 }
 
 function notifyPendingChange() {
-  changeListeners.forEach(fn => fn(pendingChanges));
+  changeListeners.forEach((fn) => fn(pendingChanges));
 }
 
 function notifyReload() {
   const time = new Date().toLocaleTimeString();
-  reloadListeners.forEach(fn => fn(reloadCount, time));
+  reloadListeners.forEach((fn) => fn(reloadCount, time));
 }
 
 async function reloadGateway(): Promise<void> {
@@ -75,8 +75,8 @@ async function reloadGateway(): Promise<void> {
     await fetch(`${getGatewayUrl()}/tyk/reload/`, { headers: authHeaders() });
     pendingChanges = 0;
     reloadCount++;
-    localStorage.setItem("tyk_reload_count", String(reloadCount));
-    localStorage.setItem("tyk_reload_time", new Date().toLocaleTimeString());
+    localStorage.setItem('tyk_reload_count', String(reloadCount));
+    localStorage.setItem('tyk_reload_time', new Date().toLocaleTimeString());
     notifyPendingChange();
     notifyReload();
   } catch {
@@ -114,13 +114,13 @@ export const tykDataProvider: DataProvider = {
   getApiUrl: () => getGatewayUrl(),
 
   getList: async ({ resource }) => {
-    if (resource === "apis") {
-      const data = (await tykFetch("apis/")) || [];
+    if (resource === 'apis') {
+      const data = (await tykFetch('apis/')) || [];
       return { data: Array.isArray(data) ? data : [], total: data.length };
     }
-    if (resource === "keys") {
+    if (resource === 'keys') {
       try {
-        const raw = (await tykFetch("keys/")) || {};
+        const raw = (await tykFetch('keys/')) || {};
         const keyIds = raw.keys || [];
         // Tyk list endpoint only returns IDs — fetch each for details
         const keys = await Promise.all(keyIds.map(async (kid: string) => {
@@ -132,7 +132,7 @@ export const tykDataProvider: DataProvider = {
         return { data: keys, total: keys.length };
       } catch (e: any) {
         // Tyk OSS disables key listing by default — degrade gracefully
-        console.warn("Key listing unavailable:", e.message);
+        console.warn('Key listing unavailable:', e.message);
         return { data: [], total: 0 };
       }
     }
@@ -140,11 +140,11 @@ export const tykDataProvider: DataProvider = {
   },
 
   getOne: async ({ resource, id }) => {
-    if (resource === "apis") {
+    if (resource === 'apis') {
       const data = await tykFetch(`apis/${id}`);
       return { data };
     }
-    if (resource === "keys") {
+    if (resource === 'keys') {
       const data = await tykFetch(`keys/${id}`);
       return { data };
     }
@@ -152,19 +152,19 @@ export const tykDataProvider: DataProvider = {
   },
 
   create: async ({ resource, variables }) => {
-    if (resource === "apis") {
-      const data = await tykFetch("apis/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+    if (resource === 'apis') {
+      const data = await tykFetch('apis/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(variables),
       });
       await afterMutation();
       return { data };
     }
-    if (resource === "keys") {
-      const data = await tykFetch("keys/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+    if (resource === 'keys') {
+      const data = await tykFetch('keys/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(variables),
       });
       await afterMutation();
@@ -174,19 +174,19 @@ export const tykDataProvider: DataProvider = {
   },
 
   update: async ({ resource, id, variables }) => {
-    if (resource === "apis") {
+    if (resource === 'apis') {
       const data = await tykFetch(`apis/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(variables),
       });
       await afterMutation();
       return { data };
     }
-    if (resource === "keys") {
+    if (resource === 'keys') {
       const data = await tykFetch(`keys/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(variables),
       });
       await afterMutation();
@@ -196,21 +196,21 @@ export const tykDataProvider: DataProvider = {
   },
 
   deleteOne: async ({ resource, id }) => {
-    if (resource === "apis") {
-      await tykFetch(`apis/${id}`, { method: "DELETE" });
+    if (resource === 'apis') {
+      await tykFetch(`apis/${id}`, { method: 'DELETE' });
       await afterMutation();
       return { data: { id } };
     }
-    if (resource === "keys") {
-      await tykFetch(`keys/${id}?api_id=`, { method: "DELETE" });
+    if (resource === 'keys') {
+      await tykFetch(`keys/${id}?api_id=`, { method: 'DELETE' });
       await afterMutation();
       return { data: { id } };
     }
     throw new Error(`Unknown resource: ${resource}`);
   },
 
-  createMany: async () => { throw new Error("createMany not implemented"); },
-  deleteMany: async () => { throw new Error("deleteMany not implemented"); },
-  updateMany: async () => { throw new Error("updateMany not implemented"); },
-  custom: async () => { throw new Error("custom not implemented"); },
+  createMany: async () => { throw new Error('createMany not implemented'); },
+  deleteMany: async () => { throw new Error('deleteMany not implemented'); },
+  updateMany: async () => { throw new Error('updateMany not implemented'); },
+  custom: async () => { throw new Error('custom not implemented'); },
 } as any;

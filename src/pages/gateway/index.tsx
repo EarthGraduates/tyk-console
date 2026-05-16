@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
-import { Card, Button, Space, Tag, Typography, Modal, Spin, Alert } from "antd";
-import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, CloudServerOutlined } from "@ant-design/icons";
+import { useState, useEffect, useCallback } from 'react';
+import { Card, Button, Space, Tag, Typography, Modal, Spin, Alert } from 'antd';
+import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, CloudServerOutlined } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 
@@ -13,7 +13,7 @@ interface GatewayStatus {
 }
 
 function getDockerUrl() {
-  return localStorage.getItem("tyk_docker_url") || "http://localhost:3001";
+  return localStorage.getItem('tyk_docker_url') || 'http://localhost:3001';
 }
 
 async function dockerGet(path: string) {
@@ -26,7 +26,7 @@ async function dockerGet(path: string) {
 }
 
 async function dockerPost(path: string) {
-  const r = await fetch(`${getDockerUrl()}${path}`, { method: "POST" });
+  const r = await fetch(`${getDockerUrl()}${path}`, { method: 'POST' });
   return await r.json();
 }
 
@@ -38,7 +38,7 @@ export default function GatewayPage() {
 
   const fetchStatus = useCallback(async () => {
     setLoading(true);
-    const s = await dockerGet("/api/gateway/status");
+    const s = await dockerGet('/api/gateway/status');
     if (s) {
       setStatus(s);
       setDockerDown(false);
@@ -53,12 +53,12 @@ export default function GatewayPage() {
   const handleAction = async (action: string) => {
     Modal.confirm({
       title: `确认${action}`,
-      content: `确定要${action} Tyk Gateway 吗？${action === "停止" ? "停止后所有 API 将不可用。" : ""}`,
+      content: `确定要${action} Tyk Gateway 吗？${action === '停止' ? '停止后所有 API 将不可用。' : ''}`,
       onOk: async () => {
         setOperating(true);
-        const map: Record<string, string> = { "启动": "start", "停止": "stop", "重启": "restart" };
+        const map: Record<string, string> = { 启动: 'start', 停止: 'stop', 重启: 'restart' };
         await dockerPost(`/api/gateway/${map[action]}`);
-        await new Promise(r => setTimeout(r, 2000)); // wait for container state
+        await new Promise((r) => setTimeout(r, 2000)); // wait for container state
         await fetchStatus();
         setOperating(false);
       },
@@ -81,24 +81,24 @@ export default function GatewayPage() {
 
       <Card style={{ marginBottom: 16 }}>
         {loading ? <Spin /> : status ? (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
             <Space>
-              <Tag color={status.running ? "green" : "red"}>
-                {status.running ? "● 运行中" : "● 已停止"}
+              <Tag color={status.running ? 'green' : 'red'}>
+                {status.running ? '● 运行中' : '● 已停止'}
               </Tag>
               <Text strong>{status.status}</Text>
             </Space>
             <div>
               <Text type="secondary">Tyk 版本 </Text>
-              <Text strong>{status.version || "—"}</Text>
+              <Text strong>{status.version || '—'}</Text>
             </div>
             <div>
               <Text type="secondary">端口 </Text>
-              <Text>{status.ports || "—"}</Text>
+              <Text>{status.ports || '—'}</Text>
             </div>
             <div>
               <Text type="secondary">启动时间 </Text>
-              <Text>{status.startedAt ? new Date(status.startedAt).toLocaleString() : "—"}</Text>
+              <Text>{status.startedAt ? new Date(status.startedAt).toLocaleString() : '—'}</Text>
             </div>
           </Space>
         ) : null}
@@ -107,7 +107,7 @@ export default function GatewayPage() {
       <Space>
         <Button
           icon={<PlayCircleOutlined />}
-          onClick={() => handleAction("启动")}
+          onClick={() => handleAction('启动')}
           loading={operating}
           disabled={dockerDown || status?.running}
         >
@@ -116,7 +116,7 @@ export default function GatewayPage() {
         <Button
           icon={<PauseCircleOutlined />}
           danger
-          onClick={() => handleAction("停止")}
+          onClick={() => handleAction('停止')}
           loading={operating}
           disabled={dockerDown || !status?.running}
         >
@@ -124,7 +124,7 @@ export default function GatewayPage() {
         </Button>
         <Button
           icon={<ReloadOutlined />}
-          onClick={() => handleAction("重启")}
+          onClick={() => handleAction('重启')}
           loading={operating}
           disabled={dockerDown || !status?.running}
         >

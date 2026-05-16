@@ -1,6 +1,6 @@
-import { dataProvider as supabaseDataProvider } from "@refinedev/supabase";
-import { supabaseClient } from "./supabase-client";
-import { tykDataProvider } from "./tyk-data-provider";
+import { dataProvider as supabaseDataProvider } from '@refinedev/supabase';
+import { supabaseClient } from './supabase-client';
+import { tykDataProvider } from './tyk-data-provider';
 
 export const dataProvider = supabaseDataProvider(supabaseClient);
 
