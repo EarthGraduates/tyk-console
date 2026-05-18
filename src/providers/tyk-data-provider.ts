@@ -25,6 +25,12 @@
 
 // @ts-nocheck — Tyk API 返回动态 JSON，Refine DataProvider 接口类型注解较宽泛
 import type { DataProvider } from '@refinedev/core';
+import {
+  apiDefinitionsDb,
+  apiDefinitionLogDb,
+  apiKeysDb,
+  usersDb,
+} from './ichse-db';
 
 // ─────────────────── 本地存储 Key 定义 ───────────────────
 
@@ -199,6 +205,121 @@ async function tykFetch(resource: string, init: RequestInit = {}): Promise<any> 
 // ─────────────────── Data Provider 实现 ───────────────────
 
 /**
+ * DB 双写辅助：创建 API 定义记录
+ * 失败不影响 Tyk 主流程（记 console.warn）
+ */
+async function dbCreateApi(apiId: string, definition: Record<string, unknown>, createdBy?: string) {
+  try {
+    const systemId = await usersDb.getSystemUserId();
+    const ownerId = createdBy || systemId || '00000000-0000-0000-0000-000000000000';
+    await apiDefinitionsDb.create({
+      api_id: apiId,
+      owner_id: ownerId,
+      name: (definition as any).name || apiId,
+      listen_path: (definition as any).proxy?.listen_path || '',
+      target_url: (definition as any).proxy?.target_url || '',
+      auth_mode: (definition as any).use_keyless ? 'keyless' : 'standard',
+      status: 'active',
+      sync_status: 'synced',
+      definition,
+      version: 1,
+      created_by: createdBy,
+      updated_by: createdBy,
+    });
+    await apiDefinitionLogDb.insert({
+      api_id: apiId,
+      definition,
+      version: 1,
+      change_type: 'create',
+      change_summary: `创建 API: ${(definition as any).name || apiId}`,
+      updated_by: createdBy,
+    });
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.warn('[ichse-db] api create log failed:', e.message);
+  }
+}
+
+/** DB 双写辅助：更新 API */
+async function dbUpdateApi(apiId: string, definition: Record<string, unknown>, updatedBy?: string) {
+  try {
+    const existing = await apiDefinitionsDb.getByApiId(apiId);
+    if (!existing) return;
+    const newVersion = existing.version + 1;
+    await apiDefinitionsDb.update(apiId, {
+      definition,
+      version: newVersion,
+      updated_by: updatedBy,
+      name: (definition as any).name || existing.name,
+      listen_path: (definition as any).proxy?.listen_path || existing.listen_path,
+      target_url: (definition as any).proxy?.target_url || existing.target_url,
+      auth_mode: (definition as any).use_keyless ? 'keyless' : 'standard',
+    });
+    await apiDefinitionLogDb.insert({
+      api_id: apiId,
+      definition,
+      version: newVersion,
+      change_type: 'update',
+      change_summary: `更新 API: ${(definition as any).name || apiId}`,
+      updated_by: updatedBy,
+    });
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.warn('[ichse-db] api update log failed:', e.message);
+  }
+}
+
+/** DB 双写辅助：删除 API（标记为 inactive） */
+async function dbDeleteApi(apiId: string, updatedBy?: string) {
+  try {
+    const existing = await apiDefinitionsDb.getByApiId(apiId);
+    if (!existing) return;
+    await apiDefinitionsDb.update(apiId, { status: 'inactive', updated_by: updatedBy });
+    await apiDefinitionLogDb.insert({
+      api_id: apiId,
+      definition: existing.definition,
+      version: existing.version,
+      change_type: 'status_change',
+      change_summary: '停用 API（从 Tyk 删除）',
+      updated_by: updatedBy,
+    });
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.warn('[ichse-db] api delete log failed:', e.message);
+  }
+}
+
+/** DB 双写辅助：创建密钥 */
+async function dbCreateKey(keyId: string, apiId: string, keyData: any) {
+  try {
+    await apiKeysDb.create({
+      key_id: keyId,
+      api_id: apiId,
+      key_value: keyData.key || undefined,
+      access_rights: keyData.access_rights || {},
+      rate: keyData.rate,
+      per: keyData.per,
+      quota_max: keyData.quota_max,
+      expires_at: keyData.expires ? new Date(keyData.expires * 1000).toISOString() : undefined,
+      status: 'active',
+    });
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.warn('[ichse-db] key create log failed:', e.message);
+  }
+}
+
+/** DB 双写辅助：吊销密钥 */
+async function dbRevokeKey(keyId: string) {
+  try {
+    await apiKeysDb.revoke(keyId);
+  } catch (e: any) {
+    // eslint-disable-next-line no-console
+    console.warn('[ichse-db] key revoke log failed:', e.message);
+  }
+}
+
+/**
  * Tyk Gateway 专用 Refine DataProvider
  *
  * ## 资源映射
@@ -268,6 +389,9 @@ export const tykDataProvider: DataProvider = {
         body: JSON.stringify(variables),
       });
       await afterMutation();
+      // 双写：DB 记录
+      const apiId = data?.api_id || variables?.api_id || data?.key;
+      if (apiId) dbCreateApi(apiId, variables as Record<string, unknown>);
       return { data };
     }
     if (resource === 'keys') {
@@ -277,6 +401,10 @@ export const tykDataProvider: DataProvider = {
         body: JSON.stringify(variables),
       });
       await afterMutation();
+      // 双写：DB 记录
+      const keyId = data?.key_id || data?.key_hash;
+      const apiId = variables?.access_rights ? Object.keys(variables.access_rights)[0] : '';
+      if (keyId) dbCreateKey(keyId, apiId, data);
       return { data };
     }
     throw new Error(`Unknown resource: ${resource}`);
@@ -291,6 +419,8 @@ export const tykDataProvider: DataProvider = {
         body: JSON.stringify(variables),
       });
       await afterMutation();
+      // 双写：DB 记录
+      dbUpdateApi(id, variables as Record<string, unknown>);
       return { data };
     }
     if (resource === 'keys') {
@@ -310,12 +440,16 @@ export const tykDataProvider: DataProvider = {
     if (resource === 'apis') {
       await tykFetch(`apis/${id}`, { method: 'DELETE' });
       await afterMutation();
+      // 双写：DB 标记为 inactive
+      dbDeleteApi(id);
       return { data: { id } };
     }
     if (resource === 'keys') {
       // Tyk 删除密钥需指定 api_id 参数（传空表示全局删除）
       await tykFetch(`keys/${id}?api_id=`, { method: 'DELETE' });
       await afterMutation();
+      // 双写：DB 标记吊销
+      dbRevokeKey(id);
       return { data: { id } };
     }
     throw new Error(`Unknown resource: ${resource}`);
