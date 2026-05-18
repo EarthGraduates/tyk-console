@@ -19,7 +19,8 @@
 import { useList, useCreate, useUpdate, useDelete } from '@refinedev/core';
 import { Table, Form, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, Select, App, Typography, Alert } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import dayjs from 'dayjs';
 
 const { Text } = Typography;
 
@@ -58,14 +59,19 @@ function KeyModal({ open, onClose, editKey }: {
     if (values.expires_at) payload.expires = Math.floor(values.expires_at.valueOf() / 1000);
 
     if (values.api_id) {
-      const targetApi = (apiResult?.data || []).find((a: any) => a.api_id === values.api_id);
-      payload.access_rights = {
-        [values.api_id]: {
-          api_id: values.api_id,
-          api_name: targetApi?.name || values.api_id,
-          versions: ['Default'],
-        },
-      };
+      // 编辑模式：API 没变则保留原有 access_rights（含 api_name 等元数据）
+      if (editKey?.access_rights?.[values.api_id]) {
+        payload.access_rights = { [values.api_id]: editKey.access_rights[values.api_id] };
+      } else {
+        const targetApi = (apiResult?.data || []).find((a: any) => a.api_id === values.api_id);
+        payload.access_rights = {
+          [values.api_id]: {
+            api_id: values.api_id,
+            api_name: targetApi?.name || values.api_id,
+            versions: ['Default'],
+          },
+        };
+      }
     }
 
     if (editKey) {
@@ -89,6 +95,25 @@ function KeyModal({ open, onClose, editKey }: {
     setCreatedKey(null);
     onClose();
   };
+
+  // 编辑模式下回填表单字段（绕过 antd v5 + React 19 的 initialValues 兼容问题）
+  useEffect(() => {
+    if (open && editKey) {
+      form.setFieldsValue({
+        api_id: editKey.access_rights
+          ? Object.keys(editKey.access_rights)[0]
+          : undefined,
+        rate: editKey.rate,
+        per: editKey.per,
+        quota_max: editKey.quota_max,
+        expires_at: editKey.expires > 0
+          ? dayjs(editKey.expires * 1000)
+          : undefined,
+      });
+    } else if (open && !editKey) {
+      form.resetFields();
+    }
+  }, [open, editKey, form]);
 
   return (
     <Modal
@@ -131,10 +156,15 @@ function KeyModal({ open, onClose, editKey }: {
           layout="vertical"
           onFinish={onFinish}
           initialValues={{
+            api_id: editKey?.access_rights
+              ? Object.keys(editKey.access_rights)[0]
+              : undefined,
             rate: editKey?.rate,
             per: editKey?.per,
             quota_max: editKey?.quota_max,
-            expires_at: editKey?.expires ? new Date(editKey.expires * 1000) : undefined,
+            expires_at: editKey?.expires > 0
+              ? dayjs(editKey.expires * 1000)
+              : undefined,
           }}
         >
           <Form.Item
