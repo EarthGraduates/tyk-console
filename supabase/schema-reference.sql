@@ -1,6 +1,11 @@
 -- ============================================================
--- ichse-asset-share-center 数据库迁移 v1
+-- ichse-asset-share-center Schema v1.0
+-- 日期: 2026-05-18 | 版本: V1.1
+-- 数据库: PostgreSQL 17 (Docker)
 -- Schema: ichse
+-- 合规: 阿里 PostgreSQL 开发规范
+-- 表: users, api_definitions, api_definition_log, api_keys
+-- ============================================================
 -- ============================================================
 
 CREATE SCHEMA IF NOT EXISTS ichse;
