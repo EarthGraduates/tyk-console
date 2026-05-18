@@ -1,6 +1,6 @@
 # 项目索引 — v1
 
-> **版本**：`dc62b6b` | **日期**：2026-05-16
+> **版本**：`7254ffe` | **日期**：2026-05-18
 > **项目**：ichse-asset-share-center — Tyk Gateway OSS 管理界面
 > **仓库**：git@github.com:EarthGraduates/ichse-asset-share-center.git
 
@@ -138,13 +138,13 @@ ichse-asset-share-center/
 
 ### 3.4 页面：密钥管理
 
-**文件**：`src/pages/keys/index.tsx`（217 行，⚠️ 编辑功能有 bug）
+**文件**：`src/pages/keys/index.tsx`（245 行）
 
 **功能**：
 - 密钥列表（Key ID/授权 API/状态/配额/速率/有效期）
 - 创建弹窗（授权 API 下拉 + 速率/配额/过期时间）
 - 创建成功后展示密钥值（一次性查看，Tyk 不会返回两次）
-- ⚠️ 编辑按钮崩溃（已回滚，待修复）
+- 编辑弹窗（预填所有字段，支持修改速率/配额/过期/授权API）
 - 吊销（确认弹窗）
 
 ### 3.5 页面：网关管理
@@ -263,9 +263,10 @@ git add -A && git commit -m "..." && git push
 
 ## 八、版本变更记录
 
-| 日期 | Commit | 变更摘要 |
-|------|--------|---------|
-| 2026-05-16 | `dc62b6b` | 阿里规约接入 + 全文件 JSDoc 注释 + 关键 Bug 修复 |
+|| 日期 | Commit | 变更摘要 |
+||------|--------|---------|
+|| 2026-05-18 | `7254ffe` | 密钥编辑弹窗修复：antd dayjs 兼容 + api_id 回填 + access_rights 保留 |
+|| 2026-05-16 | `dc62b6b` | 阿里规约接入 + 全文件 JSDoc 注释 + 关键 Bug 修复 |
 | 2026-05-15 | `e788aac` | v1 第一轮开发总结 |
 | 2026-05-15 | 多 commits | Stage 0-4 页面开发 |
 | 2026-05-14 | `7ac9dfa` | 设计文档 + 实施计划初稿 |
