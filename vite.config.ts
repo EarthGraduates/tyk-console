@@ -14,6 +14,12 @@ export default defineConfig({
         target: "http://localhost:8080",
         changeOrigin: true,
       },
+      // Proxy PostgREST (PostgreSQL REST API)
+      "/db": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/db/, ''),
+      },
     },
   },
 });

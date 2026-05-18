@@ -1,4 +1,3 @@
-# PostgreSQL for ichse-asset-share-center
 services:
   postgres:
     image: postgres:17-alpine
@@ -11,4 +10,23 @@ services:
       - "5433:5432"
     volumes:
       - ./pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ichse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgrest:
+    image: postgrest/postgrest
+    container_name: ichse-postgrest
+    ports:
+      - "3001:3000"
+    environment:
+      PGRST_DB_URI: postgres://ichse:ichse_dev@postgres:5432/ichse
+      PGRST_DB_SCHEMA: ichse
+      PGRST_DB_ANON_ROLE: web_anon
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
