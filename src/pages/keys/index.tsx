@@ -257,7 +257,7 @@ export default function KeyList() {
       <Space style={{ marginBottom: 16 }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>创建密钥</Button>
       </Space>
-      <Table dataSource={result?.data || []} columns={columns} rowKey="key_id" loading={isLoading} size="small" />
+      <Table dataSource={result?.data || []} columns={columns} rowKey="key_id" loading={isLoading} size="small" scroll={{ x: 'max-content' }} />
 
       <KeyModal open={modalOpen} onClose={() => setModalOpen(false)} editKey={editKey} />
     </div>

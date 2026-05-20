@@ -209,8 +209,19 @@ export function ApiList() {
       <Space style={{ marginBottom: 16 }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { setCloneSource(null); setCreateOpen(true); }}>创建 API</Button>
       </Space>
-      <Table dataSource={result?.data || []} columns={columns} rowKey="api_id" loading={isLoading} size="small" />
-      <ApiCreateModal open={createOpen} onClose={() => { setCreateOpen(false); setCloneSource(null); }} cloneData={cloneSource} />
+      <Table
+        dataSource={result?.data || []}
+        columns={columns}
+        rowKey="api_id"
+        loading={isLoading}
+        size="small"
+        scroll={{ x: 'max-content' }}
+      />
+      <ApiCreateModal
+        open={createOpen}
+        onClose={() => { setCreateOpen(false); setCloneSource(null); }}
+        cloneData={cloneSource}
+      />
     </div>
   );
 }
