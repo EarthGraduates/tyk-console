@@ -179,13 +179,11 @@ export default function Dashboard() {
     { title: '请求', dataIndex: 'requests', key: 'requests' },
     { title: '成功', dataIndex: 'success', key: 'success', render: (v: number) => <Tag color="green">{v}</Tag> },
     { title: '错误', dataIndex: 'error', key: 'error', render: (v: number) => (v > 0 ? <Tag color="red">{v}</Tag> : <Tag>0</Tag>) },
-    // 状态列：先判断 active（停用 > 所有），再判断错误数（健康 vs 异常）
     { title: '状态',
       key: 'status',
       render: (_: any, r: ApiHealth) => {
-        if (!r.active) return <Tag color="default">已停用</Tag>;
-        if (r.error > 0) return <Tag color="warning">⚠ 异常</Tag>;
-        return <Tag color="success">🟢 正常</Tag>;
+        if (r.error > 0) return <Tag color="warning">异常</Tag>;
+        return <Tag color="success">正常</Tag>;
       },
     },
   ];

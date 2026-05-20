@@ -17,7 +17,7 @@
 import { useList, useCreate, useDelete, useOne } from '@refinedev/core';
 import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App, Drawer, Spin } from 'antd';
 import { PlusOutlined, CopyOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 /**
  * API 创建/克隆 Modal 组件
@@ -109,8 +109,16 @@ function ApiCreateModal({ open, onClose, cloneData }: {
               label: '基本信息',
               children: (
                 <Space direction="vertical" style={{ width: '100%' }}>
-                  <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
-                  <Form.Item name="api_id" label="API ID" rules={[{ required: true }]}><Input /></Form.Item>
+                  <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入 API 名称' }]}><Input placeholder="例如：用户服务 API" /></Form.Item>
+                  <Form.Item
+                    name="api_id"
+                    label="API ID"
+                    rules={[
+                      { required: true, message: '请输入 API ID' },
+                      { pattern: /^[a-z0-9_-]+$/, message: '仅支持小写字母、数字、下划线和连字符' },
+                    ]}
+                  ><Input placeholder="例如：user-service" />
+                  </Form.Item>
                   <Form.Item name="active" label="启用" valuePropName="checked"><Switch /></Form.Item>
                 </Space>
               ) },
@@ -118,8 +126,24 @@ function ApiCreateModal({ open, onClose, cloneData }: {
               label: '路由配置',
               children: (
                 <Space direction="vertical" style={{ width: '100%' }}>
-                  <Form.Item name="listen_path" label="监听路径" rules={[{ required: true }]}><Input placeholder="/my-api/" /></Form.Item>
-                  <Form.Item name="target_url" label="上游 URL" rules={[{ required: true }]}><Input placeholder="http://upstream" /></Form.Item>
+                  <Form.Item
+                    name="listen_path"
+                    label="监听路径"
+                    rules={[
+                      { required: true, message: '请输入监听路径' },
+                      { pattern: /^\/[\w\-/]*\/$/, message: '必须以 / 开头和结尾，如 /my-api/' },
+                    ]}
+                  ><Input placeholder="/my-api/" />
+                  </Form.Item>
+                  <Form.Item
+                    name="target_url"
+                    label="上游 URL"
+                    rules={[
+                      { required: true, message: '请输入上游 URL' },
+                      { type: 'url', message: '请输入有效的 URL（http:// 或 https://）' },
+                    ]}
+                  ><Input placeholder="http://upstream" />
+                  </Form.Item>
                   <Form.Item name="strip_listen_path" label="剥离路径" valuePropName="checked"><Switch /></Form.Item>
                 </Space>
               ) },
@@ -128,7 +152,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
               children: (
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Form.Item name="use_keyless" label="免认证 (Keyless)" valuePropName="checked"><Switch /></Form.Item>
-                  <Form.Item name="auth_header_name" label="认证头"><Input /></Form.Item>
+                  <Form.Item name="auth_header_name" label="认证头"><Input placeholder="authorization" /></Form.Item>
                   <Form.Item name="enable_jwt" label="启用 JWT" valuePropName="checked"><Switch /></Form.Item>
                 </Space>
               ) },
@@ -152,7 +176,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
               children: (
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <Form.Item name="enable_cache" label="启用缓存" valuePropName="checked"><Switch /></Form.Item>
-                  <Form.Item name="cache_timeout" label="超时(s)"><Input type="number" /></Form.Item>
+                  <Form.Item name="cache_timeout" label="超时(s)" rules={[{ type: 'number', min: 1, max: 86400, message: '1~86400 秒' }]}><Input type="number" placeholder="60" /></Form.Item>
                 </Space>
               ) },
           ]}
@@ -179,6 +203,7 @@ export function ApiList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [cloneSource, setCloneSource] = useState<any>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
 
   const { result, isLoading } = useList({ resource: 'apis', dataProviderName: 'tyk' });
   const { mutate: deleteApi } = useDelete({ dataProviderName: 'tyk' });
@@ -212,18 +237,41 @@ export function ApiList() {
       ) },
   ];
 
+  const dataSource = useMemo(() => {
+    const raw = result?.data || [];
+    if (!searchText.trim()) return raw;
+    const s = searchText.toLowerCase();
+    return raw.filter((r: any) =>
+      (r.name || '').toLowerCase().includes(s)
+      || (r.api_id || '').toLowerCase().includes(s)
+      || (r.proxy?.listen_path || '').toLowerCase().includes(s)
+      || (r.proxy?.target_url || '').toLowerCase().includes(s));
+  }, [result?.data, searchText]);
+
   return (
     <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { setCloneSource(null); setCreateOpen(true); }}>创建 API</Button>
+        <Input.Search
+          placeholder="搜索名称、API ID、路径、上游"
+          allowClear
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ width: 360 }}
+        />
       </Space>
       <Table
-        dataSource={result?.data || []}
+        dataSource={dataSource}
         columns={columns}
         rowKey="api_id"
         loading={isLoading}
         size="small"
         scroll={{ x: 'max-content' }}
+        pagination={{
+          defaultPageSize: 10,
+          showSizeChanger: true,
+          pageSizeOptions: ['10', '20', '50'],
+          showTotal: (total) => `共 ${total} 条`,
+        }}
       />
       <ApiCreateModal
         open={createOpen}

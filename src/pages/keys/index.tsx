@@ -17,9 +17,9 @@
  */
 
 import { useList, useCreate, useUpdate, useDelete } from '@refinedev/core';
-import { Table, Form, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, Select, App, Typography, Alert } from 'antd';
+import { Table, Form, Input, InputNumber, Button, Space, Tag, Popconfirm, Modal, DatePicker, Select, App, Typography, Alert } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dayjs from 'dayjs';
 
 const { Text } = Typography;
@@ -134,7 +134,7 @@ function KeyModal({ open, onClose, editKey }: {
           <Form layout="vertical">
             <Form.Item label="Key ID">
               <InputNumber value={createdKey.key_id} disabled style={{ width: '100%' }} />
-              <Text copyable code style={{ display: 'block', marginTop: 4 }}>{createdKey.key_id}</Text>
+              <Text copyable code style={{ display: 'block', marginTop: 8 }}>{createdKey.key_id}</Text>
             </Form.Item>
             {createdKey.key && (
               <Form.Item label="密钥值 (Key)" help="使用此值作为 API 请求的 Authorization 头">
@@ -182,10 +182,10 @@ function KeyModal({ open, onClose, editKey }: {
               }
             />
           </Form.Item>
-          <Form.Item label="速率 (请求数)" name="rate" help="每秒允许的请求数，留空或 0 表示不限制"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item label="时间窗口 (s)" name="per" help="速率计算的时间窗口（秒），默认 1 秒"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item label="最大配额" name="quota_max" help="密钥生命周期内允许的总请求数，-1 表示无限制"><InputNumber min={-1} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item label="过期时间" name="expires_at" help="密钥将在该时间后自动失效，留空表示永不过期"><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
+          <Form.Item label="速率 (请求数)" name="rate" help="每秒允许的请求数，留空或 0 表示不限制" rules={[{ type: 'number', min: 0, message: '不能小于 0' }]}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item label="时间窗口 (s)" name="per" help="速率计算的时间窗口（秒），默认 1 秒" rules={[{ type: 'number', min: 1, message: '至少 1 秒' }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item label="最大配额" name="quota_max" help="密钥生命周期内允许的总请求数，-1 表示无限制" rules={[{ type: 'number', min: -1, message: '不能小于 -1' }]}><InputNumber min={-1} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item label="过期时间" name="expires_at" help="密钥将在该时间后自动失效，留空表示永不过期"><DatePicker showTime style={{ width: '100%' }} placeholder="留空表示永不过期" /></Form.Item>
           <div style={{ textAlign: 'right' }}>
             <Space>
               <Button onClick={handleClose}>取消</Button>
@@ -208,6 +208,7 @@ export default function KeyList() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editKey, setEditKey] = useState<any>(null);
+  const [searchText, setSearchText] = useState('');
 
   const openCreate = () => { setEditKey(null); setModalOpen(true); };
   const openEdit = (key: any) => { setEditKey(key); setModalOpen(true); };
@@ -236,28 +237,59 @@ export default function KeyList() {
         <Space>
           <Button size="small" onClick={() => openEdit(r)}>编辑</Button>
           <Popconfirm
-            title="确定吊销此密钥？"
+            title="确定删除此密钥？"
             placement="left"
             onConfirm={() => {
               deleteKey({ resource: 'keys', id: r.key_id }, {
-                onSuccess: () => message.success('已吊销'),
-                onError: (e: any) => message.error(`吊销失败: ${e.message}`),
+                onSuccess: () => message.success('已删除'),
+                onError: (e: any) => message.error(`删除失败: ${e.message}`),
               });
             }}
           >
-            <Button size="small" danger>吊销</Button>
+            <Button size="small" danger>删除</Button>
           </Popconfirm>
         </Space>
       ),
     },
   ];
 
+  const dataSource = useMemo(() => {
+    const raw = result?.data || [];
+    if (!searchText.trim()) return raw;
+    const s = searchText.toLowerCase();
+    return raw.filter((r: any) => {
+      const keyId = (r.key_id || '').toLowerCase();
+      const apiName = Object.values(r.access_rights || {}).map((a: any) =>
+        (a.api_name || a.api_id || '').toLowerCase()).join(' ');
+      return keyId.includes(s) || apiName.includes(s);
+    });
+  }, [result?.data, searchText]);
+
   return (
     <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>创建密钥</Button>
+        <Input.Search
+          placeholder="搜索 Key ID、授权 API"
+          allowClear
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ width: 360 }}
+        />
       </Space>
-      <Table dataSource={result?.data || []} columns={columns} rowKey="key_id" loading={isLoading} size="small" scroll={{ x: 'max-content' }} />
+      <Table
+        dataSource={dataSource}
+        columns={columns}
+        rowKey="key_id"
+        loading={isLoading}
+        size="small"
+        scroll={{ x: 'max-content' }}
+        pagination={{
+          defaultPageSize: 10,
+          showSizeChanger: true,
+          pageSizeOptions: ['10', '20', '50'],
+          showTotal: (total) => `共 ${total} 条`,
+        }}
+      />
 
       <KeyModal open={modalOpen} onClose={() => setModalOpen(false)} editKey={editKey} />
     </div>
