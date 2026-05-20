@@ -48,7 +48,7 @@ import { supabaseClient } from './providers/supabase-client';
 import Dashboard from './pages/dashboard';
 import SettingsPage from './pages/settings';
 import GatewayPage from './pages/gateway';
-import { ApiList, ApiShow } from './pages/apis';
+import { ApiList } from './pages/apis';
 import KeyList from './pages/keys';
 
 const { Sider, Content } = Layout;
@@ -139,7 +139,6 @@ function App() {
                           <Route path="/settings" element={<SettingsPage />} />
                           <Route path="/gateway" element={<GatewayPage />} />
                           <Route path="/apis" element={<ApiList />} />
-                          <Route path="/apis/:id" element={<ApiShow />} />
                           <Route path="/keys" element={<KeyList />} />
                         </Routes>
                       </AppLayout>

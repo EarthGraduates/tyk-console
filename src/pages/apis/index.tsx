@@ -15,10 +15,9 @@
  */
 
 import { useList, useCreate, useDelete, useOne } from '@refinedev/core';
-import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App } from 'antd';
+import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App, Drawer, Spin } from 'antd';
 import { PlusOutlined, CopyOutlined } from '@ant-design/icons';
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 
 /**
  * API 创建/克隆 Modal 组件
@@ -177,12 +176,21 @@ function ApiCreateModal({ open, onClose, cloneData }: {
  * 创建和克隆复用 ApiCreateModal 弹窗（不导航到独立页面）。
  */
 export function ApiList() {
-  const navigate = useNavigate();
-  const { result, isLoading } = useList({ resource: 'apis', dataProviderName: 'tyk' });
-  const { mutate: deleteApi } = useDelete({ dataProviderName: 'tyk' });
-
   const [createOpen, setCreateOpen] = useState(false);
   const [cloneSource, setCloneSource] = useState<any>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  const { result, isLoading } = useList({ resource: 'apis', dataProviderName: 'tyk' });
+  const { mutate: deleteApi } = useDelete({ dataProviderName: 'tyk' });
+  const { query: detailQuery } = useOne({
+    resource: 'apis',
+    id: detailId || '',
+    dataProviderName: 'tyk',
+    queryOptions: { enabled: !!detailId },
+  });
+
+  const detailData = detailQuery?.data?.data;
+  const detailLoading = detailQuery?.isLoading ?? false;
 
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
@@ -195,7 +203,7 @@ export function ApiList() {
       key: 'actions',
       render: (_: any, r: any) => (
         <Space>
-          <Button size="small" onClick={() => navigate(`/apis/${r.api_id}`)}>详情</Button>
+          <Button size="small" onClick={() => setDetailId(r.api_id)}>详情</Button>
           <Button size="small" icon={<CopyOutlined />} onClick={() => { setCloneSource(r); setCreateOpen(true); }}>克隆</Button>
           <Popconfirm title="确定删除？" placement="left" onConfirm={() => deleteApi({ resource: 'apis', id: r.api_id })}>
             <Button size="small" danger>删除</Button>
@@ -222,27 +230,18 @@ export function ApiList() {
         onClose={() => { setCreateOpen(false); setCloneSource(null); }}
         cloneData={cloneSource}
       />
-    </div>
-  );
-}
-
-/**
- * API 详情页
- *
- * @description
- * 展示单个 API Definition 的完整 JSON（格式化、只读）
- */
-export function ApiShow() {
-  const apiId = window.location.pathname.split('/').pop();
-  const { data, isLoading } = useOne({ resource: 'apis', id: apiId || '', dataProviderName: 'tyk' });
-
-  return (
-    <div style={{ padding: 24 }}>
-      {isLoading ? <span>加载中...</span> : (
-        <pre style={{ background: '#f5f5f5', padding: 16, borderRadius: 8, overflow: 'auto', maxHeight: '70vh' }}>
-          {JSON.stringify(data?.data, null, 2)}
-        </pre>
-      )}
+      <Drawer
+        title={`API 详情 — ${detailId}`}
+        open={!!detailId}
+        onClose={() => setDetailId(null)}
+        width={640}
+      >
+        {detailLoading ? <Spin /> : (
+          <pre style={{ background: '#f5f5f5', padding: 16, borderRadius: 8, overflow: 'auto', maxHeight: '70vh' }}>
+            {JSON.stringify(detailData, null, 2)}
+          </pre>
+        )}
+      </Drawer>
     </div>
   );
 }
