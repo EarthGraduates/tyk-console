@@ -1,14 +1,14 @@
 /**
- * 主题颜色模式上下文（Refine 脚手架模板代码）
+ * 主题配置（品牌色 + 浅色主题）
  *
  * @description
- * 提供亮色/暗色主题切换功能，自动检测系统偏好，持久化到 localStorage。
- * 当前项目使用自定义蓝色背景 (#0087f5)，主题切换仍可用。
+ * - 品牌色：极光绿 #52c41a（医疗行业）
+ * - 默认浅色模式，支持暗色切换
+ * - 菜单、卡片等组件颜色统一通过 ConfigProvider 管理
  *
  * @module contexts/color-mode
  */
 
-import { RefineThemes } from '@refinedev/antd';
 import { ConfigProvider, theme } from 'antd';
 import { type PropsWithChildren, createContext, useEffect, useState } from 'react';
 
@@ -25,14 +25,11 @@ export const ColorModeContext = createContext<ColorModeContextType>(
 export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
   children,
 }) => {
-  const colorModeFromLocalStorage = localStorage.getItem('colorMode');
-  const isSystemPreferenceDark = window?.matchMedia('(prefers-color-scheme: dark)').matches;
-
-  const systemPreference = isSystemPreferenceDark ? 'dark' : 'light';
-  const [mode, setMode] = useState(colorModeFromLocalStorage || systemPreference);
+  const colorModeFromLocalStorage = localStorage.getItem('ichse-color-mode');
+  const [mode, setMode] = useState(colorModeFromLocalStorage || 'light');
 
   useEffect(() => {
-    window.localStorage.setItem('colorMode', mode);
+    window.localStorage.setItem('ichse-color-mode', mode);
   }, [mode]);
 
   const setColorMode = () => {
@@ -49,8 +46,24 @@ export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
     <ColorModeContext.Provider value={{ setMode: setColorMode, mode }}>
       <ConfigProvider
         theme={{
-          ...RefineThemes.Blue,
           algorithm: mode === 'light' ? defaultAlgorithm : darkAlgorithm,
+          token: {
+            colorPrimary: '#52c41a',
+          },
+          components: {
+            Menu: {
+              itemBg: '#ffffff',
+              itemColor: 'rgba(0,0,0,0.88)',
+              itemHoverColor: '#52c41a',
+              itemHoverBg: '#f6ffed',
+              itemSelectedColor: '#52c41a',
+              itemSelectedBg: '#f6ffed',
+              subMenuItemBg: '#ffffff',
+            },
+            Card: {
+              colorBgContainer: '#f6ffed',
+            },
+          },
         }}
       >
         {children}

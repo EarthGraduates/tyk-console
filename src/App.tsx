@@ -36,11 +36,12 @@ import '@refinedev/antd/dist/reset.css';
 
 import routerProvider, { DocumentTitleHandler, UnsavedChangesNotifier } from '@refinedev/react-router';
 import { liveProvider } from '@refinedev/supabase';
-import { App as AntdApp, Layout, Menu } from 'antd';
+import { App as AntdApp, Menu } from 'antd';
 import {
   DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined, CloudServerOutlined,
 } from '@ant-design/icons';
 import { BrowserRouter, Route, Routes, useNavigate, useLocation } from 'react-router';
+import { useState } from 'react';
 import { ColorModeContextProvider } from './contexts/color-mode';
 import authProvider from './providers/auth';
 import { dataProviderMap } from './providers/data';
@@ -51,25 +52,50 @@ import GatewayPage from './pages/gateway';
 import { ApiList } from './pages/apis';
 import KeyList from './pages/keys';
 
-const { Sider, Content } = Layout;
+const SIDER_WIDTH = 200;
+const SIDER_COLLAPSED_WIDTH = 80;
 
 /**
  * 应用主布局（侧边栏 + 内容区）
- * - 左侧暗色 Sider：5 个菜单项（仪表板/网关/服务/密钥/设置）
- * - 右侧 Content：蓝色背景 (#0087f5)，各页面组件
+ * - 左侧浅色侧边栏：可折叠，5 个菜单项
+ * - 右侧 Content：浅灰背景 #f5f5f5
  */
 function AppLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+
+  const siderWidth = collapsed ? SIDER_COLLAPSED_WIDTH : SIDER_WIDTH;
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider collapsible>
-        <div style={{ color: 'white', textAlign: 'center', padding: '16px 0', fontWeight: 'bold' }}>
-          ichse Tyk
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <div
+        style={{
+          width: siderWidth,
+          minWidth: siderWidth,
+          maxWidth: siderWidth,
+          background: '#fff',
+          borderRight: '1px solid #f0f0f0',
+          transition: 'all 0.2s',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div style={{
+          color: 'rgba(0,0,0,0.88)',
+          textAlign: 'center',
+          padding: '16px 0',
+          fontWeight: 'bold',
+          fontSize: collapsed ? 12 : 16,
+          transition: 'font-size 0.2s',
+        }}
+        >
+          {collapsed ? 'iT' : 'ichse Tyk'}
         </div>
         <Menu
-          theme="dark"
+          mode="inline"
+          inlineCollapsed={collapsed}
           selectedKeys={[location.pathname.split('/')[1] ? `/${location.pathname.split('/')[1]}` : '/']}
           items={[
             { key: '/', icon: <DashboardOutlined />, label: '仪表板' },
@@ -79,10 +105,24 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             { key: '/settings', icon: <SettingOutlined />, label: '设置' },
           ]}
           onClick={({ key }) => navigate(key)}
+          style={{ borderInlineEnd: 'none', background: 'transparent', flex: 1 }}
         />
-      </Sider>
-      <Content style={{ background: '#0087f5' }}>{children}</Content>
-    </Layout>
+        <div
+          onClick={() => setCollapsed(!collapsed)}
+          style={{
+            textAlign: 'center',
+            padding: '12px 0',
+            cursor: 'pointer',
+            color: 'rgba(0,0,0,0.45)',
+            borderTop: '1px solid #f0f0f0',
+            fontSize: 16,
+          }}
+        >
+          {collapsed ? '▶' : '◀'}
+        </div>
+      </div>
+      <div style={{ flex: 1, background: '#f5f5f5', overflow: 'auto' }}>{children}</div>
+    </div>
   );
 }
 
