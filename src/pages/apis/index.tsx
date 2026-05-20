@@ -237,7 +237,16 @@ export function ApiList() {
         width={640}
       >
         {detailLoading ? <Spin /> : (
-          <pre style={{ background: '#f5f5f5', padding: 16, borderRadius: 8, overflow: 'auto', maxHeight: '70vh' }}>
+          <pre style={{
+            background: '#1e1e1e',
+            color: '#d4d4d4',
+            padding: 16,
+            borderRadius: 8,
+            overflow: 'auto',
+            maxHeight: '70vh',
+            fontSize: 13,
+          }}
+          >
             {JSON.stringify(detailData, null, 2)}
           </pre>
         )}
