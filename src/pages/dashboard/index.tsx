@@ -4,48 +4,48 @@
  * @description
  * 展示 Tyk Gateway 的整体运行状态，包含：
  * - 网关健康卡片（版本号、Redis 连通性）
- * - 全局统计卡片（API 总数、平均延迟、请求数、Reload 次数）
- * - API 健康指标列表（前 10 个，含延误/请求/成功/错误/状态）
- * - 一键重载按钮 + 重载计数器 + 距上次重载时间
+ * - 全局统计卡片（API 总数、平均延迟、请求速率、Reload 次数）
+ * - API 运行状态表格（分页 + 搜索 + 排序 + health 懒加载）
+ * - 一键重载按钮 + 重载计数器
  * - 暂停自动重载开关 + 未生效更改 banner
  * - 手动/自动刷新控制
  *
- * ## 数据来源
- * - GET /hello → 网关版本 + Redis 状态
- * - GET /tyk/apis/ → API 列表
- * - GET /tyk/health/?api_id=xxx → 每个 API 的健康指标（逐个遍历）
- *
- * ## 性能考虑
- * - 自动轮询默认关闭，避免 N+1 问题（N 个 API = N 次 HTTP 请求/轮询）
- * - 健康指标列表限制前 10 个，其余按需加载
+ * ## health 懒加载策略
+ * - 首次列出全部 API（名称、ID 立即可见）
+ * - 仅对当前分页可见行，逐条串行调 /tyk/health/
+ * - 拿到一条回填一行，翻页时复用缓存
+ * - 手动/自动刷新时清缓存重新加载
  *
  * @component
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { Card, Statistic, Row, Col, Table, Tag, Button, Switch, Space, Typography, Spin, Alert } from 'antd';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  Card, Statistic, Row, Col, Table, Tag, Button, Switch,
+  Space, Typography, Spin, Alert, Input,
+} from 'antd';
 import { ReloadOutlined, PauseCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import { getGatewayUrl, getSecret } from '../../providers/tyk-data-provider';
 
 const { Text } = Typography;
 
-/** Tyk /hello 端点返回的网关健康状态 */
 interface TykHello {
   status: string;
   version: string;
   details: { redis: { status: string } };
 }
 
-/** 单个 API 的健康指标（从 /tyk/health/ 获取并聚合 API 定义字段） */
-interface ApiHealth {
+interface ApiBase {
   api_id: string;
   name: string;
   active: boolean;
-  avg_upstream_latency: number;
-  requests: number;
 }
 
-/** Tyk Gateway API 通用 GET 请求辅助函数 */
+interface ApiHealth extends ApiBase {
+  avg_upstream_latency: number | null;
+  requests: number | null;
+}
+
 async function tykGet(path: string) {
   const h: Record<string, string> = {};
   const s = getSecret();
@@ -55,22 +55,28 @@ async function tykGet(path: string) {
   return t ? JSON.parse(t) : null;
 }
 
-/** localStorage key：reload 计数器 */
 const RELOAD_KEY = 'tyk_reload_count';
-/** localStorage key：上次 reload 时间 */
 const RELOAD_TIME_KEY = 'tyk_reload_time';
 
 export default function Dashboard() {
   // ── 网关状态 ──
   const [hello, setHello] = useState<TykHello | null>(null);
-  const [apiHealths, setApiHealths] = useState<ApiHealth[]>([]);
+  const [apiList, setApiList] = useState<ApiBase[]>([]);
+  const [healthCache, setHealthCache] = useState<Map<string, { latency: number; rps: number }>>(
+    new Map(),
+  );
+  const [healthLoadingIds, setHealthLoadingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  // ── 轮询控制（默认关闭） ──
+  // ── 轮询控制 ──
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshInterval] = useState(10);
+  const refreshFlag = useRef(0);
 
-  // ── Reload 追踪（持久化到 localStorage） ──
+  // ── Reload 追踪 ──
   const [reloadCount, setReloadCount] = useState(Number(localStorage.getItem(RELOAD_KEY) || 0));
   const [reloadTime, setReloadTime] = useState(localStorage.getItem(RELOAD_TIME_KEY) || '');
 
@@ -80,36 +86,19 @@ export default function Dashboard() {
   const [pendingChanges, setPendingChanges] = useState(0);
 
   /**
-   * 获取网关健康数据 + 各 API 健康指标
-   * - 调用 /hello 获取版本和 Redis 状态
-   * - 遍历 /tyk/apis/ 前 10 个，逐个查询 /tyk/health/
-   * - 合并 API 定义的 active 字段用于状态判断
+   * 加载 API 列表（不含 health）
+   * - GET /hello → 网关状态
+   * - GET /tyk/apis/ → 全部 API 基本信息
+   * - 清空 health 缓存，触发当前页 health 加载
    */
-  const fetchHealth = useCallback(async () => {
+  const fetchApiList = useCallback(async () => {
     setLoading(true);
     try {
       const h = await tykGet('/hello');
       setHello(h);
-      const apis = (await tykGet('/tyk/apis/')) || [];
-      const healths: ApiHealth[] = [];
-      // 仅加载前 10 个 API，避免 N+1 请求放大
-      for (const api of apis.slice(0, 10)) {
-        try {
-          const health = await tykGet(`/tyk/health/?api_id=${api.api_id}`);
-          if (health) {
-            healths.push({
-              api_id: api.api_id,
-              name: api.name,
-              active: api.active ?? true,
-              avg_upstream_latency: health.average_upstream_latency || 0,
-              requests: health.average_requests_per_second || 0,
-            });
-          }
-        } catch {
-          // 单个 API 健康查询失败不影响整体
-        }
-      }
-      setApiHealths(healths);
+      const apis: ApiBase[] = (await tykGet('/tyk/apis/')) || [];
+      setApiList(apis);
+      setHealthCache(new Map());
     } catch {
       // 网关不可达
     }
@@ -117,21 +106,26 @@ export default function Dashboard() {
   }, []);
 
   // 首次加载
-  useEffect(() => { fetchHealth(); }, [fetchHealth]);
+  useEffect(() => { fetchApiList(); }, [fetchApiList]);
 
-  // 轮询刷新
+  // 自动刷新
   useEffect(() => {
     if (!autoRefresh) return;
-    const id = setInterval(fetchHealth, refreshInterval * 1000);
+    const id = setInterval(() => {
+      refreshFlag.current += 1;
+      fetchApiList();
+    }, refreshInterval * 1000);
     return () => clearInterval(id);
-  }, [autoRefresh, refreshInterval, fetchHealth]);
+  }, [autoRefresh, refreshInterval, fetchApiList]);
+
+  // 手动刷新
+  const handleManualRefresh = () => {
+    refreshFlag.current += 1;
+    fetchApiList();
+  };
 
   /**
    * 一键重载 Tyk Gateway
-   * - 调用 /tyk/reload/ 使所有 API 变更生效
-   * - 更新 reload 计数器和时间（持久化到 localStorage）
-   * - 清空 pendingChanges 计数器
-   * - 重载后自动刷新健康数据
    */
   const handleReload = async () => {
     try {
@@ -143,19 +137,17 @@ export default function Dashboard() {
       localStorage.setItem(RELOAD_KEY, String(count));
       localStorage.setItem(RELOAD_TIME_KEY, time);
       setPendingChanges(0);
-      fetchHealth();
+      fetchApiList();
     } catch {
       // reload 失败静默处理
     }
   };
 
-  /** 切换自动 reload 模式 */
   const handleToggleAutoReload = (v: boolean) => {
     setAutoReloadEnabled(v);
     localStorage.setItem('tyk_auto_reload', String(v));
   };
 
-  // 暴露 reload 状态给 Data Provider（供 create/update/delete 后同步 pendingChanges）
   useEffect(() => {
     (window as any).__tyk_onChange = () => {
       if (autoReloadEnabled) {
@@ -167,22 +159,117 @@ export default function Dashboard() {
     (window as any).__tyk_autoReload = () => autoReloadEnabled;
   }, [autoReloadEnabled]);
 
+  // ── health 懒加载：逐条串行加载当前页 API 的 health 数据 ──
+  const loadHealthForIds = useCallback(async (ids: string[]) => {
+    setHealthLoadingIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return next;
+    });
+
+    for (const id of ids) {
+      try {
+        const health = await tykGet(`/tyk/health/?api_id=${id}`);
+        if (health) {
+          setHealthCache((prev) => {
+            const next = new Map(prev);
+            next.set(id, {
+              latency: health.average_upstream_latency || 0,
+              rps: health.average_requests_per_second || 0,
+            });
+            return next;
+          });
+        }
+      } catch {
+        // 单个 health 失败不影响
+      }
+      setHealthLoadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }, []);
+
+  // ── 组合数据源：apiList + healthCache → 带 health 的完整数据 ──
+  const fullDataSource: ApiHealth[] = useMemo(() => {
+    return apiList.map((api) => {
+      const h = healthCache.get(api.api_id);
+      return {
+        ...api,
+        avg_upstream_latency: h ? h.latency : null,
+        requests: h ? h.rps : null,
+      };
+    });
+  }, [apiList, healthCache]);
+
+  // ── 搜索过滤 ──
+  const filteredData = useMemo(() => {
+    if (!searchText.trim()) return fullDataSource;
+    const s = searchText.toLowerCase();
+    return fullDataSource.filter((r) =>
+      (r.name || '').toLowerCase().includes(s)
+      || (r.api_id || '').toLowerCase().includes(s));
+  }, [fullDataSource, searchText]);
+
   // ── 表格列定义 ──
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: 'API ID', dataIndex: 'api_id', key: 'api_id', ellipsis: true },
-    { title: '延迟', dataIndex: 'avg_upstream_latency', key: 'latency', render: (v: number) => `${Math.round(v)}ms` },
-    { title: '请求速率', dataIndex: 'requests', key: 'requests', render: (v: number) => `${v}/s` },
-    { title: '状态',
+    {
+      title: '延迟',
+      dataIndex: 'avg_upstream_latency',
+      key: 'latency',
+      sorter: (a: ApiHealth, b: ApiHealth) =>
+        (a.avg_upstream_latency || 0) - (b.avg_upstream_latency || 0),
+      render: (v: number | null, r: ApiHealth) => {
+        if (healthLoadingIds.has(r.api_id)) return <Spin size="small" />;
+        if (v != null) return `${Math.round(v)}ms`;
+        return '--';
+      },
+    },
+    {
+      title: '请求速率',
+      dataIndex: 'requests',
+      key: 'requests',
+      sorter: (a: ApiHealth, b: ApiHealth) => (a.requests || 0) - (b.requests || 0),
+      render: (v: number | null, r: ApiHealth) => {
+        if (healthLoadingIds.has(r.api_id)) return <Spin size="small" />;
+        if (v != null) return `${v}/s`;
+        return '--';
+      },
+    },
+    {
+      title: '状态',
       key: 'status',
       render: () => <Tag color="success">正常</Tag>,
     },
   ];
 
-  // ── 全局统计 ──
-  const totalApis = apiHealths.length;
-  const avgLatency = totalApis ? Math.round(apiHealths.reduce((s, a) => s + a.avg_upstream_latency, 0) / totalApis) : 0;
-  const totalRps = apiHealths.reduce((s, a) => s + a.requests, 0);
+  // ── 当前页变化时，加载缺少 health 的行 ──
+  useEffect(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageIds = filteredData.slice(start, end).map((a) => a.api_id);
+    const missing = pageIds.filter((id) => !healthCache.has(id));
+    if (missing.length > 0) loadHealthForIds(missing);
+  }, [filteredData, currentPage, pageSize, healthCache, loadHealthForIds]);
+
+  // ── 全局统计（仅统计已加载 health 的数据） ──
+  const stats = useMemo(() => {
+    const withHealth = fullDataSource.filter((a) => a.avg_upstream_latency != null);
+    const count = withHealth.length;
+    const totalLatency = withHealth.reduce((s, a) => s + (a.avg_upstream_latency || 0), 0);
+    const totalRps = withHealth.reduce((s, a) => s + (a.requests || 0), 0);
+    return {
+      totalApis: apiList.length,
+      avgLatency: count ? Math.round(totalLatency / count) : 0,
+      totalRps: Math.round(totalRps * 10) / 10,
+    };
+  }, [fullDataSource, apiList.length]);
+
+  // ── 统计受 refreshFlag/healthCache 变化影响 ──
+  // （上面的 stats 已经依赖 healthCache via fullDataSource，这里不再额外处理）
 
   return (
     <div style={{ padding: 24 }}>
@@ -207,7 +294,7 @@ export default function Dashboard() {
         </Row>
       </Card>
 
-      {/* 未生效更改 Banner（暂停 reload 时显示） */}
+      {/* 未生效更改 Banner */}
       {pendingChanges > 0 && (
         <Alert
           type="warning"
@@ -231,25 +318,53 @@ export default function Dashboard() {
 
       {/* 全局统计卡片 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}><Card><Statistic title="API 总数" value={totalApis} /></Card></Col>
-        <Col span={6}><Card><Statistic title="平均延迟" value={avgLatency} suffix="ms" /></Card></Col>
-        <Col span={6}><Card><Statistic title="请求速率" value={totalRps} suffix="/s" /></Card></Col>
+        <Col span={6}><Card><Statistic title="API 总数" value={stats.totalApis} /></Card></Col>
+        <Col span={6}><Card><Statistic title="平均延迟" value={stats.avgLatency} suffix="ms" /></Card></Col>
+        <Col span={6}><Card><Statistic title="请求速率" value={stats.totalRps} suffix="/s" /></Card></Col>
         <Col span={6}><Card><Statistic title="Reload 次数" value={reloadCount} /></Card></Col>
       </Row>
 
-      {/* 刷新控制 */}
-      <Space style={{ marginBottom: 16 }}>
-        <Button icon={<ReloadOutlined spin={loading} />} onClick={fetchHealth}>手动刷新</Button>
-        <Text>自动刷新</Text>
-        <Switch checked={autoRefresh} onChange={setAutoRefresh} />
-        {autoRefresh && <Text type="secondary">每 {refreshInterval}s</Text>}
+      {/* 刷新控制 + 搜索 */}
+      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
+        <Space>
+          <Button
+            icon={<ReloadOutlined spin={loading} />}
+            onClick={handleManualRefresh}
+          >手动刷新
+          </Button>
+          <Text>自动刷新</Text>
+          <Switch checked={autoRefresh} onChange={setAutoRefresh} />
+          {autoRefresh && <Text type="secondary">每 {refreshInterval}s</Text>}
+        </Space>
+        <Input.Search
+          placeholder="搜索名称、API ID"
+          allowClear
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{ width: 280 }}
+        />
       </Space>
 
-      {/* API 健康指标表格 */}
-      <Card title="API 运行状态（前 10 个）">
-        {loading ? <Spin tip="加载中..." /> : (
-          <Table dataSource={apiHealths} columns={columns} rowKey="api_id" pagination={false} size="small" />
-        )}
+      {/* API 运行状态表格 */}
+      <Card title="API 运行状态">
+        <Table
+          dataSource={filteredData}
+          columns={columns}
+          rowKey="api_id"
+          loading={loading}
+          size="small"
+          scroll={{ x: 'max-content' }}
+          pagination={{
+            current: currentPage,
+            pageSize,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50'],
+            showTotal: (total: number) => `共 ${total} 条`,
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
+        />
       </Card>
     </div>
   );
