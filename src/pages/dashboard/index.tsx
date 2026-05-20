@@ -104,9 +104,9 @@ export default function Dashboard() {
               name: api.name,
               active: api.active ?? true,
               avg_upstream_latency: health.average_upstream_latency || 0,
-              requests: health.requests || 0,
-              success: health.success || 0,
-              error: health.error || 0,
+              requests: health.average_requests_per_second || 0,
+              success: 0,
+              error: (health.key_failures_per_second || 0) + (health.quota_violations_per_second || 0),
             });
           }
         } catch {
@@ -175,14 +175,13 @@ export default function Dashboard() {
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: 'API ID', dataIndex: 'api_id', key: 'api_id', ellipsis: true },
-    { title: '延迟', dataIndex: 'avg_upstream_latency', key: 'latency', render: (v: number) => `${v}ms` },
-    { title: '请求', dataIndex: 'requests', key: 'requests' },
-    { title: '成功', dataIndex: 'success', key: 'success', render: (v: number) => <Tag color="green">{v}</Tag> },
-    { title: '错误', dataIndex: 'error', key: 'error', render: (v: number) => (v > 0 ? <Tag color="red">{v}</Tag> : <Tag>0</Tag>) },
+    { title: '延迟', dataIndex: 'avg_upstream_latency', key: 'latency', render: (v: number) => `${Math.round(v)}ms` },
+    { title: '请求速率', dataIndex: 'requests', key: 'requests', render: (v: number) => `${v}/s` },
+    { title: '认证失败', dataIndex: 'error', key: 'error', render: (v: number) => (v > 0 ? <Tag color="red">{v}/s</Tag> : <Tag>0</Tag>) },
     { title: '状态',
       key: 'status',
       render: (_: any, r: ApiHealth) => {
-        if (r.error > 0) return <Tag color="warning">异常</Tag>;
+        if (r.error > 5) return <Tag color="warning">异常</Tag>;
         return <Tag color="success">正常</Tag>;
       },
     },
@@ -191,7 +190,7 @@ export default function Dashboard() {
   // ── 全局统计 ──
   const totalApis = apiHealths.length;
   const avgLatency = totalApis ? Math.round(apiHealths.reduce((s, a) => s + a.avg_upstream_latency, 0) / totalApis) : 0;
-  const totalRequests = apiHealths.reduce((s, a) => s + a.requests, 0);
+  const totalRps = apiHealths.reduce((s, a) => s + a.requests, 0);
 
   return (
     <div style={{ padding: 24 }}>
@@ -242,7 +241,7 @@ export default function Dashboard() {
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col span={6}><Card><Statistic title="API 总数" value={totalApis} /></Card></Col>
         <Col span={6}><Card><Statistic title="平均延迟" value={avgLatency} suffix="ms" /></Card></Col>
-        <Col span={6}><Card><Statistic title="总请求数" value={totalRequests} /></Card></Col>
+        <Col span={6}><Card><Statistic title="请求速率" value={totalRps} suffix="/s" /></Card></Col>
         <Col span={6}><Card><Statistic title="Reload 次数" value={reloadCount} /></Card></Col>
       </Row>
 
