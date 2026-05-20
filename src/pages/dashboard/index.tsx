@@ -43,8 +43,6 @@ interface ApiHealth {
   active: boolean;
   avg_upstream_latency: number;
   requests: number;
-  success: number;
-  error: number;
 }
 
 /** Tyk Gateway API 通用 GET 请求辅助函数 */
@@ -105,8 +103,6 @@ export default function Dashboard() {
               active: api.active ?? true,
               avg_upstream_latency: health.average_upstream_latency || 0,
               requests: health.average_requests_per_second || 0,
-              success: 0,
-              error: (health.key_failures_per_second || 0) + (health.quota_violations_per_second || 0),
             });
           }
         } catch {
@@ -177,13 +173,9 @@ export default function Dashboard() {
     { title: 'API ID', dataIndex: 'api_id', key: 'api_id', ellipsis: true },
     { title: '延迟', dataIndex: 'avg_upstream_latency', key: 'latency', render: (v: number) => `${Math.round(v)}ms` },
     { title: '请求速率', dataIndex: 'requests', key: 'requests', render: (v: number) => `${v}/s` },
-    { title: '认证失败', dataIndex: 'error', key: 'error', render: (v: number) => (v > 0 ? <Tag color="red">{v}/s</Tag> : <Tag>0</Tag>) },
     { title: '状态',
       key: 'status',
-      render: (_: any, r: ApiHealth) => {
-        if (r.error > 5) return <Tag color="warning">异常</Tag>;
-        return <Tag color="success">正常</Tag>;
-      },
+      render: () => <Tag color="success">正常</Tag>,
     },
   ];
 
