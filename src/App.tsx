@@ -38,7 +38,7 @@ import routerProvider, { DocumentTitleHandler, UnsavedChangesNotifier } from '@r
 import { liveProvider } from '@refinedev/supabase';
 import { App as AntdApp, Menu } from 'antd';
 import {
-  DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined, CloudServerOutlined,
+  DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined, CloudServerOutlined, HistoryOutlined,
 } from '@ant-design/icons';
 import { BrowserRouter, Route, Routes, useNavigate, useLocation } from 'react-router';
 import { useState } from 'react';
@@ -51,6 +51,7 @@ import SettingsPage from './pages/settings';
 import GatewayPage from './pages/gateway';
 import { ApiList } from './pages/apis';
 import KeyList from './pages/keys';
+import ApiRecords from './pages/api-records';
 
 const SIDER_WIDTH = 200;
 const SIDER_COLLAPSED_WIDTH = 80;
@@ -102,6 +103,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             { key: '/gateway', icon: <CloudServerOutlined />, label: '网关' },
             { key: '/apis', icon: <ApiOutlined />, label: '服务' },
             { key: '/keys', icon: <KeyOutlined />, label: '密钥' },
+            { key: '/api-records', icon: <HistoryOutlined />, label: '历史记录' },
             { key: '/settings', icon: <SettingOutlined />, label: '设置' },
           ]}
           onClick={({ key }) => navigate(key)}
@@ -165,6 +167,7 @@ function App() {
                 resources={[
                   { name: 'apis', meta: { dataProviderName: 'tyk' } },
                   { name: 'keys', meta: { dataProviderName: 'tyk' } },
+                  { name: 'api-records', meta: { dataProviderName: 'ichseDb' } },
                 ]}
                 options={{ syncWithLocation: true, warnWhenUnsavedChanges: true, projectId: 'Xo459U-5agjM8-PTCSc7' }}
               >
@@ -180,6 +183,7 @@ function App() {
                           <Route path="/gateway" element={<GatewayPage />} />
                           <Route path="/apis" element={<ApiList />} />
                           <Route path="/keys" element={<KeyList />} />
+                          <Route path="/api-records" element={<ApiRecords />} />
                         </Routes>
                       </AppLayout>
                   }

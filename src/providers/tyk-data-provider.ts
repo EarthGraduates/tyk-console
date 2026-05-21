@@ -187,7 +187,7 @@ async function afterMutation(): Promise<void> {
  * @returns 解析后的 JSON，空响应返回 null
  * @throws {Error} HTTP 非 2xx 时抛出含状态码和响应体的错误
  */
-async function tykFetch(resource: string, init: RequestInit = {}): Promise<any> {
+export async function tykFetch(resource: string, init: RequestInit = {}): Promise<any> {
   const url = `${getGatewayUrl()}/tyk/${resource}`;
   const headers = { ...authHeaders(), ...init.headers };
   const res = await fetch(url, { ...init, headers });
