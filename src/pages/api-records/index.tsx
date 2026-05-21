@@ -253,14 +253,14 @@ export default function ApiRecords() {
   const [searchText, setSearchText] = useState('');
   const { message } = App.useApp();
 
-  const { result, isLoading } = useList({ resource: 'api-records', dataProviderName: 'ichseDb' });
+  const { result, query, isLoading } = useList({ resource: 'api-records', dataProviderName: 'ichseDb' });
 
   // ── 停用：Tyk DELETE + DB inactive ──
   const deactivate = async (record: any) => {
     const res = await deactivateApi(record);
     if (res.success) {
       message.success(`「${record.name}」已停用`);
-      result?.refetch?.();
+      query.refetch();
     } else {
       message.error(res.error || '停用失败');
     }
@@ -271,7 +271,7 @@ export default function ApiRecords() {
     const res = await deleteApiWithKeyCleanup(record);
     if (res.success) {
       message.success(`「${record.name}」已删除`);
-      result?.refetch?.();
+      query.refetch();
     } else {
       message.error(res.error || '删除失败');
     }
@@ -282,7 +282,7 @@ export default function ApiRecords() {
     const res = await reactivateApi(record);
     if (res.success) {
       message.success(`「${record.name}」已重新启用`);
-      result?.refetch?.();
+      query.refetch();
     } else {
       message.error(res.error || '启用失败');
     }
@@ -293,7 +293,7 @@ export default function ApiRecords() {
     const res = await syncApiToTyk(record);
     if (res.success) {
       message.success(`「${record.name}」已同步到 Tyk`);
-      result?.refetch?.();
+      query.refetch();
     } else {
       message.error(res.error || '同步失败');
     }
