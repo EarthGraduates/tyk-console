@@ -55,6 +55,22 @@ async function tykGet(path: string) {
   return t ? JSON.parse(t) : null;
 }
 
+/**
+ * 从 DB 获取已禁用的 API ID 集合
+ * 用于交叉校验仪表盘 API 列表，过滤掉已停用但仍存在于 Tyk 的 API。
+ * DB 不可达时返回空 Set（降级为全部展示）。
+ */
+async function fetchInactiveApiIds(): Promise<Set<string>> {
+  try {
+    const res = await fetch('/db/api_definitions?status=eq.inactive&select=api_id');
+    if (!res.ok) return new Set();
+    const data = await res.json();
+    return new Set((data || []).map((r: any) => r.api_id));
+  } catch {
+    return new Set();
+  }
+}
+
 const RELOAD_KEY = 'tyk_reload_count';
 const RELOAD_TIME_KEY = 'tyk_reload_time';
 
@@ -97,7 +113,12 @@ export default function Dashboard() {
       const h = await tykGet('/hello');
       setHello(h);
       const apis: ApiBase[] = (await tykGet('/tyk/apis/')) || [];
-      setApiList(apis);
+      // 交叉校验 DB 中停用的 API，过滤掉已停用但仍存在于 Tyk 的记录
+      const inactiveIds = await fetchInactiveApiIds();
+      const filtered = inactiveIds.size > 0
+        ? apis.filter((a) => !inactiveIds.has(a.api_id))
+        : apis;
+      setApiList(filtered);
       setHealthCache(new Map());
     } catch {
       // 网关不可达

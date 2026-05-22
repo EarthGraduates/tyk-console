@@ -1,255 +1,126 @@
 /**
- * Supabase 认证 Provider（Refine 脚手架模板）
+ * JWT 认证 Provider（Phase 1 — 密码登录）
  *
- * @description
- * 实现 Refine AuthProvider 接口，基于 Supabase Auth 提供：
- * - 邮箱/密码登录 + 注册
- * - OAuth 第三方登录
- * - 密码重置 + 忘记密码
- * - Session 持久化（cookie-based）
- *
- * 当前项目使用此 provider 控制页面访问，
- * 所有登录用户共享同一套 Tyk API Secret。
+ * 登录调用 PostgREST /rpc/login（内部用 pgjwt 签名），
+ * 返回 JSONB { token }，前端 JSON.parse 后存 localStorage。
  *
  * @module providers/auth
  */
 
-import { AuthProvider } from '@refinedev/core';
-import { supabaseClient } from './supabase-client';
+import type { AuthProvider } from '@refinedev/core';
+import { getToken, setToken, removeToken, isTokenExpired, getPayload } from './jwt';
+
+async function rpcLogin(payload: Record<string, unknown>): Promise<{ token: string }> {
+  const url = new URL('/db/rpc/login', window.location.origin);
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let message = '登录失败';
+    try {
+      const err = JSON.parse(text);
+      message = err.message || message;
+    } catch { /* use raw text */ }
+    if (text && text.length < 200) message = text;
+    throw new Error(message);
+  }
+  const data = JSON.parse(await res.text());
+  return { token: data.token };
+}
 
 const authProvider: AuthProvider = {
   login: async ({ email, password, providerName }) => {
-    // sign in with oauth
+    if (providerName) {
+      return { success: false, error: { name: 'Error', message: 'OAuth 暂不支持' } };
+    }
+
     try {
-      if (providerName) {
-        const { data, error } = await supabaseClient.auth.signInWithOAuth({
-          provider: providerName,
-        });
-
-        if (error) {
-          return {
-            success: false,
-            error,
-          };
-        }
-
-        if (data?.url) {
-          return {
-            success: true,
-            redirectTo: '/',
-          };
-        }
-      }
-
-      // sign in with email and password
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password,
+      const { token } = await rpcLogin({
+        p_login: email,
+        p_password: password,
       });
 
-      if (error) {
-        return {
-          success: false,
-          error,
-        };
+      if (isTokenExpired(token)) {
+        return { success: false, error: { name: 'Error', message: 'Token expired' } };
       }
 
-      if (data?.user) {
-        return {
-          success: true,
-          redirectTo: '/',
-        };
-      }
+      setToken(token);
+      return { success: true, redirectTo: '/' };
     } catch (error: any) {
       return {
         success: false,
-        error,
+        error: { name: 'Login Failed', message: error.message || '登录失败' },
       };
     }
-
-    return {
-      success: false,
-      error: {
-        message: 'Login failed',
-        name: 'Invalid email or password',
-      },
-    };
   },
-  register: async ({ email, password }) => {
-    try {
-      const { data, error } = await supabaseClient.auth.signUp({
-        email,
-        password,
-      });
 
-      if (error) {
-        return {
-          success: false,
-          error,
-        };
-      }
+  register: async () => ({
+    success: false,
+    error: { name: 'Not Supported', message: '注册功能暂未开放' },
+  }),
 
-      if (data) {
-        return {
-          success: true,
-          redirectTo: '/',
-        };
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        error,
-      };
-    }
+  forgotPassword: async () => ({
+    success: false,
+    error: { name: 'Not Supported', message: '请联系管理员重置密码' },
+  }),
 
-    return {
-      success: false,
-      error: {
-        message: 'Register failed',
-        name: 'Invalid email or password',
-      },
-    };
-  },
-  forgotPassword: async ({ email }) => {
-    try {
-      const { data, error } = await supabaseClient.auth.resetPasswordForEmail(
-        email,
-        {
-          redirectTo: `${window.location.origin}/update-password`,
-        },
-      );
+  updatePassword: async () => ({
+    success: false,
+    error: { name: 'Not Supported', message: '密码修改暂未开放' },
+  }),
 
-      if (error) {
-        return {
-          success: false,
-          error,
-        };
-      }
-
-      if (data) {
-        return {
-          success: true,
-        };
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        error,
-      };
-    }
-
-    return {
-      success: false,
-      error: {
-        message: 'Forgot password failed',
-        name: 'Invalid email',
-      },
-    };
-  },
-  updatePassword: async ({ password }) => {
-    try {
-      const { data, error } = await supabaseClient.auth.updateUser({
-        password,
-      });
-
-      if (error) {
-        return {
-          success: false,
-          error,
-        };
-      }
-
-      if (data) {
-        return {
-          success: true,
-          redirectTo: '/',
-        };
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        error,
-      };
-    }
-    return {
-      success: false,
-      error: {
-        message: 'Update password failed',
-        name: 'Invalid password',
-      },
-    };
-  },
   logout: async () => {
-    const { error } = await supabaseClient.auth.signOut();
-
-    if (error) {
-      return {
-        success: false,
-        error,
-      };
-    }
-
-    return {
-      success: true,
-      redirectTo: '/',
-    };
+    removeToken();
+    return { success: true, redirectTo: '/login' };
   },
+
   onError: async (error) => {
     console.error(error);
     return { error };
   },
+
   check: async () => {
     try {
-      const { data } = await supabaseClient.auth.getSession();
-      const { session } = data;
-
-      if (!session) {
+      const token = getToken();
+      if (!token || isTokenExpired(token)) {
         return {
           authenticated: false,
-          error: {
-            message: 'Check failed',
-            name: 'Session not found',
-          },
+          error: { name: 'Unauthorized', message: '请先登录' },
           logout: true,
           redirectTo: '/login',
         };
       }
+      return { authenticated: true };
     } catch (error: any) {
+      console.error('[auth] check() failed:', error);
       return {
         authenticated: false,
-        error: error || {
-          message: 'Check failed',
-          name: 'Not authenticated',
-        },
+        error: { name: 'Error', message: error?.message || '认证检查失败' },
         logout: true,
         redirectTo: '/login',
       };
     }
-
-    return {
-      authenticated: true,
-    };
   },
+
   getPermissions: async () => {
-    const user = await supabaseClient.auth.getUser();
-
-    if (user) {
-      return user.data.user?.role;
-    }
-
-    return null;
+    const payload = getPayload();
+    return payload?.biz_role ?? null;
   },
+
   getIdentity: async () => {
-    const { data } = await supabaseClient.auth.getUser();
-
-    if (data?.user) {
-      return {
-        ...data.user,
-        name: data.user.email,
-      };
-    }
-
-    return null;
+    const payload = getPayload();
+    if (!payload) return null;
+    return {
+      id: payload.sub,
+      name: payload.display_name || payload.email || '',
+      email: payload.email || '',
+      phone: payload.phone || '',
+      bizRole: payload.biz_role,
+      secretLevel: payload.secret_level || '',
+    };
   },
 };
 

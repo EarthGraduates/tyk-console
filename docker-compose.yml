@@ -2,6 +2,9 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: ichse-postgres
+    command: >
+      postgres
+      -c app.jwt_secret=dev-jwt-secret-change-in-production
     environment:
       POSTGRES_USER: ichse
       POSTGRES_PASSWORD: ichse_dev
@@ -10,6 +13,7 @@ services:
       - "5433:5432"
     volumes:
       - ./pgdata:/var/lib/postgresql/data
+      - ./database/postgresql/init:/docker-entrypoint-initdb.d
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ichse"]
@@ -26,6 +30,9 @@ services:
       PGRST_DB_URI: postgres://ichse:ichse_dev@postgres:5432/ichse
       PGRST_DB_SCHEMA: ichse
       PGRST_DB_ANON_ROLE: web_anon
+      PGRST_JWT_SECRET: dev-jwt-secret-change-in-production
+      PGRST_DB_PRE_REQUEST: ichse.db_pre_request
+      PGRST_DB_CACHE_ENABLED: "false"
     depends_on:
       postgres:
         condition: service_healthy

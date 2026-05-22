@@ -11,12 +11,16 @@
 // @ts-nocheck — 动态 JSON 响应类型较宽泛
 
 // Vite proxy: /db/* → http://localhost:3001/*
+import { getAuthHeader } from './jwt';
+
 async function rest(method: string, path: string, body?: any, params?: Record<string, string>): Promise<any> {
   const url = new URL(`/db${path}`, window.location.origin);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    ...getAuthHeader(),
+  };
   if (body) {
     headers['Content-Type'] = 'application/json';
     headers.Prefer = 'return=representation';

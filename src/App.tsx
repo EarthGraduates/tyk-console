@@ -27,7 +27,7 @@
  * @module App
  */
 
-import { Refine, WelcomePage } from '@refinedev/core';
+import { Refine, Authenticated, useLogout } from '@refinedev/core';
 import { DevtoolsPanel, DevtoolsProvider } from '@refinedev/devtools';
 import { RefineKbar, RefineKbarProvider } from '@refinedev/kbar';
 
@@ -35,23 +35,23 @@ import { useNotificationProvider } from '@refinedev/antd';
 import '@refinedev/antd/dist/reset.css';
 
 import routerProvider, { DocumentTitleHandler, UnsavedChangesNotifier } from '@refinedev/react-router';
-import { liveProvider } from '@refinedev/supabase';
 import { App as AntdApp, Menu } from 'antd';
 import {
   DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined, CloudServerOutlined, HistoryOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
-import { BrowserRouter, Route, Routes, useNavigate, useLocation } from 'react-router';
+import { BrowserRouter, Route, Routes, useNavigate, useLocation, Navigate } from 'react-router';
 import { useState } from 'react';
 import { ColorModeContextProvider } from './contexts/color-mode';
 import authProvider from './providers/auth';
 import { dataProviderMap } from './providers/data';
-import { supabaseClient } from './providers/supabase-client';
 import Dashboard from './pages/dashboard';
 import SettingsPage from './pages/settings';
 import GatewayPage from './pages/gateway';
 import { ApiList } from './pages/apis';
 import KeyList from './pages/keys';
 import ApiRecords from './pages/api-records';
+import LoginPage from './pages/login';
 
 const SIDER_WIDTH = 200;
 const SIDER_COLLAPSED_WIDTH = 80;
@@ -65,6 +65,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { mutate: logout } = useLogout();
 
   const siderWidth = collapsed ? SIDER_COLLAPSED_WIDTH : SIDER_WIDTH;
 
@@ -109,6 +110,19 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           onClick={({ key }) => navigate(key)}
           style={{ borderInlineEnd: 'none', background: 'transparent', flex: 1 }}
         />
+        <div
+          onClick={() => logout()}
+          style={{
+            textAlign: 'center',
+            padding: '12px 0',
+            cursor: 'pointer',
+            color: 'rgba(0,0,0,0.45)',
+            borderTop: '1px solid #f0f0f0',
+            fontSize: collapsed ? 12 : 14,
+          }}
+        >
+          <LogoutOutlined /> {collapsed ? '' : '退出登录'}
+        </div>
         <div
           onClick={() => setCollapsed(!collapsed)}
           style={{
@@ -161,7 +175,6 @@ function App() {
               <Refine
                 notificationProvider={useNotificationProvider}
                 dataProvider={dataProviderMap}
-                liveProvider={liveProvider(supabaseClient)}
                 authProvider={authProvider}
                 routerProvider={routerProvider}
                 resources={[
@@ -172,20 +185,22 @@ function App() {
                 options={{ syncWithLocation: true, warnWhenUnsavedChanges: true, projectId: 'Xo459U-5agjM8-PTCSc7' }}
               >
                 <Routes>
-                  <Route path="/login" element={<WelcomePage />} />
+                  <Route path="/login" element={<LoginPage />} />
                   <Route
                     path="*"
                     element={
-                      <AppLayout>
-                        <Routes>
-                          <Route index element={<Dashboard />} />
-                          <Route path="/settings" element={<SettingsPage />} />
-                          <Route path="/gateway" element={<GatewayPage />} />
-                          <Route path="/apis" element={<ApiList />} />
-                          <Route path="/keys" element={<KeyList />} />
-                          <Route path="/api-records" element={<ApiRecords />} />
-                        </Routes>
-                      </AppLayout>
+                      <Authenticated key="protected" fallback={<Navigate to="/login" />}>
+                        <AppLayout>
+                          <Routes>
+                            <Route index element={<Dashboard />} />
+                            <Route path="/settings" element={<SettingsPage />} />
+                            <Route path="/gateway" element={<GatewayPage />} />
+                            <Route path="/apis" element={<ApiList />} />
+                            <Route path="/keys" element={<KeyList />} />
+                            <Route path="/api-records" element={<ApiRecords />} />
+                          </Routes>
+                        </AppLayout>
+                      </Authenticated>
                   }
                   />
                 </Routes>
