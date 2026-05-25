@@ -112,7 +112,7 @@ export default function GatewayPage() {
       <Card style={{ marginBottom: 16 }}>
         {loading && <Spin />}
         {!loading && status && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
             <Space>
               <Tag color={status.running ? 'green' : 'red'}>
                 {status.running ? '● 运行中' : '● 已停止'}

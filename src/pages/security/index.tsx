@@ -111,7 +111,7 @@ export default function SecurityPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 640 }}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         <div>
           <Title level={4}><LockOutlined /> 安全策略配置</Title>
           <Text type="secondary">

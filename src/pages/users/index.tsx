@@ -158,15 +158,24 @@ export default function UsersPage() {
     { title: '名称', dataIndex: 'display_name', key: 'display_name', ellipsis: true },
     { title: '邮箱', dataIndex: 'email', key: 'email', ellipsis: true },
     {
-      title: '角色', dataIndex: 'role', key: 'role', width: 100,
-      render: (r: string) => r ? <Tag color={ROLE_COLORS[r] || 'default'}>{ROLE_LABELS[r] || r}</Tag> : '-',
+      title: '角色',
+      dataIndex: 'role',
+      key: 'role',
+      width: 100,
+      render: (r: string) => (r ? <Tag color={ROLE_COLORS[r] || 'default'}>{ROLE_LABELS[r] || r}</Tag> : '-'),
     },
     {
-      title: '安全等级', dataIndex: 'secret_level', key: 'secret_level', width: 80,
+      title: '安全等级',
+      dataIndex: 'secret_level',
+      key: 'secret_level',
+      width: 80,
       render: (l: string) => l || '-',
     },
     {
-      title: '状态', dataIndex: 'status', key: 'status', width: 80,
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 80,
       render: (s: string) => {
         if (s === 'active') return <Tag color="green">正常</Tag>;
         if (s === 'disabled') return <Tag color="default">已停用</Tag>;
@@ -175,11 +184,16 @@ export default function UsersPage() {
       },
     },
     {
-      title: '最后登录', dataIndex: 'last_login_at', key: 'last_login_at', width: 160,
-      render: (t: string) => t ? new Date(t).toLocaleString() : '-',
+      title: '最后登录',
+      dataIndex: 'last_login_at',
+      key: 'last_login_at',
+      width: 160,
+      render: (t: string) => (t ? new Date(t).toLocaleString() : '-'),
     },
     {
-      title: '操作', key: 'actions', width: isSystemAdmin ? 200 : 80,
+      title: '操作',
+      key: 'actions',
+      width: isSystemAdmin ? 200 : 80,
       render: (_: any, record: UserRecord) => (
         <Space size="small">
           {isSystemAdmin && (
@@ -240,7 +254,7 @@ export default function UsersPage() {
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
-        destroyOnClose
+        destroyOnHidden
         width={480}
       >
         <Form form={form} layout="vertical">
@@ -259,10 +273,10 @@ export default function UsersPage() {
             <Input disabled={isSecurityAdmin} placeholder="用户显示名称" />
           </Form.Item>
           <Form.Item name="role" label="角色">
-            <Select disabled={isSecurityAdmin && !editingUser} options={ROLES.map(r => ({ label: `${ROLE_LABELS[r]} (${r})`, value: r }))} />
+            <Select disabled={isSecurityAdmin && !editingUser} options={ROLES.map((r) => ({ label: `${ROLE_LABELS[r]} (${r})`, value: r }))} />
           </Form.Item>
           <Form.Item name="secret_level" label="安全等级">
-            <Select options={SECRET_LEVELS.map(l => ({ label: l, value: l }))} />
+            <Select options={SECRET_LEVELS.map((l) => ({ label: l, value: l }))} />
           </Form.Item>
           {isSystemAdmin && (
             <Form.Item name="status" label="状态">

@@ -39,19 +39,25 @@ export default function BusinessDashboard() {
     return () => clearInterval(timer);
   }, [fetchData]);
 
-  const activeApis = apis.filter(a => a.status === 'active');
-  const syncedApis = apis.filter(a => a.sync_status === 'synced');
-  const pendingApis = apis.filter(a => a.sync_status === 'pending');
-  const failedApis = apis.filter(a => a.sync_status === 'failed');
+  const activeApis = apis.filter((a) => a.status === 'active');
+  const syncedApis = apis.filter((a) => a.sync_status === 'synced');
+  const pendingApis = apis.filter((a) => a.sync_status === 'pending');
+  const failedApis = apis.filter((a) => a.sync_status === 'failed');
 
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name', ellipsis: true },
     {
-      title: '状态', dataIndex: 'status', key: 'status', width: 80,
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 80,
       render: (s: string) => <Tag color={s === 'active' ? 'green' : 'default'}>{s}</Tag>,
     },
     {
-      title: '同步', dataIndex: 'sync_status', key: 'sync_status', width: 80,
+      title: '同步',
+      dataIndex: 'sync_status',
+      key: 'sync_status',
+      width: 80,
       render: (s: string) => {
         if (s === 'synced') return <Tag icon={<CheckCircleOutlined />} color="green">已同步</Tag>;
         if (s === 'pending') return <Tag icon={<SyncOutlined spin />} color="orange">待同步</Tag>;
@@ -67,13 +73,13 @@ export default function BusinessDashboard() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         <Row gutter={16}>
           <Col span={6}>
             <Card><Statistic title="API 总数" value={apis.length} prefix={<ApiOutlined />} /></Card>
           </Col>
           <Col span={6}>
-            <Card><Statistic title="激活" value={activeApis.length} suffix={`/ ${apis.length}`} valueStyle={{ color: '#3f8600' }} /></Card>
+            <Card><Statistic title="激活" value={activeApis.length} suffix={`/ ${apis.length}`} styles={{ content: { color: '#3f8600' } }} /></Card>
           </Col>
           <Col span={6}>
             <Card><Statistic title="密钥数" value={keyCount} prefix={<KeyOutlined />} /></Card>
@@ -84,7 +90,7 @@ export default function BusinessDashboard() {
                 title="同步状态"
                 value={syncedApis.length}
                 suffix={failedApis.length > 0 ? ` / 失败 ${failedApis.length}` : ''}
-                valueStyle={{ color: failedApis.length > 0 ? '#cf1322' : '#3f8600' }}
+                styles={{ content: { color: failedApis.length > 0 ? '#cf1322' : '#3f8600' } }}
               />
             </Card>
           </Col>

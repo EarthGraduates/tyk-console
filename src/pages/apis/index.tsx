@@ -78,7 +78,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
   };
 
   return (
-    <Modal title={cloneData ? '克隆 API' : '创建 API'} open={open} onCancel={onClose} width={800} footer={null} destroyOnClose>
+    <Modal title={cloneData ? '克隆 API' : '创建 API'} open={open} onCancel={onClose} width={800} footer={null} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -109,7 +109,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
             { key: 'basic',
               label: '基本信息',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入 API 名称' }]}><Input placeholder="例如：用户服务 API" /></Form.Item>
                   <Form.Item
                     name="api_id"
@@ -126,7 +126,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
             { key: 'route',
               label: '路由配置',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item
                     name="listen_path"
                     label="监听路径"
@@ -151,7 +151,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
             { key: 'auth',
               label: '认证',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="use_keyless" label="免认证 (Keyless)" valuePropName="checked"><Switch /></Form.Item>
                   <Form.Item name="auth_header_name" label="认证头"><Input placeholder="authorization" /></Form.Item>
                   <Form.Item name="enable_jwt" label="启用 JWT" valuePropName="checked"><Switch /></Form.Item>
@@ -160,7 +160,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
             { key: 'cors',
               label: 'CORS',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="cors_enable" label="启用 CORS" valuePropName="checked"><Switch /></Form.Item>
                   <Form.Item name="allowed_origins" label="允许域名"><Input placeholder="*" /></Form.Item>
                   <Form.Item name="allowed_methods" label="允许方法"><Input placeholder="GET, POST" /></Form.Item>
@@ -175,7 +175,7 @@ function ApiCreateModal({ open, onClose, cloneData }: {
             { key: 'cache',
               label: '缓存',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="enable_cache" label="启用缓存" valuePropName="checked"><Switch /></Form.Item>
                   <Form.Item name="cache_timeout" label="超时(s)" rules={[{ type: 'number', min: 1, max: 86400, message: '1~86400 秒' }]}><Input type="number" placeholder="60" /></Form.Item>
                 </Space>
@@ -287,7 +287,7 @@ export function ApiList() {
         title={`API 详情 — ${detailId}`}
         open={!!detailId}
         onClose={() => setDetailId(null)}
-        width={640}
+        size="large"
       >
         {detailLoading ? <Spin /> : (
           <pre style={{

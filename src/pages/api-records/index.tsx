@@ -76,7 +76,7 @@ function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) 
   };
 
   return (
-    <Modal title="创建 API" open={open} onCancel={onClose} width={800} footer={null} destroyOnClose>
+    <Modal title="创建 API" open={open} onCancel={onClose} width={800} footer={null} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -91,7 +91,7 @@ function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) 
               key: 'basic',
               label: '基本信息',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="name" label="名称" rules={[{ required: true }]}>
                     <Input placeholder="例如：用户服务 API" />
                   </Form.Item>
@@ -105,7 +105,7 @@ function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) 
               key: 'route',
               label: '路由配置',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="listen_path" label="监听路径" rules={[{ required: true }, { pattern: /^\/[\w\-/]*\/$/, message: '必须以 / 开头和结尾' }]}>
                     <Input placeholder="/my-api/" />
                   </Form.Item>
@@ -120,7 +120,7 @@ function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) 
               key: 'auth',
               label: '认证',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="use_keyless" label="免认证 (Keyless)" valuePropName="checked"><Switch /></Form.Item>
                   <Form.Item name="auth_header_name" label="认证头"><Input placeholder="authorization" /></Form.Item>
                   <Form.Item name="enable_jwt" label="启用 JWT" valuePropName="checked"><Switch /></Form.Item>
@@ -131,7 +131,7 @@ function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) 
               key: 'cors',
               label: 'CORS',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="cors_enable" label="启用 CORS" valuePropName="checked"><Switch /></Form.Item>
                   <Form.Item name="allowed_origins" label="允许域名"><Input placeholder="*" /></Form.Item>
                   <Form.Item name="allowed_methods" label="允许方法"><Input placeholder="GET, POST" /></Form.Item>
@@ -150,7 +150,7 @@ function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) 
               key: 'cache',
               label: '缓存',
               children: (
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Form.Item name="enable_cache" label="启用缓存" valuePropName="checked"><Switch /></Form.Item>
                   <Form.Item name="cache_timeout" label="超时(s)" rules={[{ type: 'number', min: 1, max: 86400 }]}>
                     <Input type="number" placeholder="60" />
@@ -223,7 +223,7 @@ function EditModal({ open, onClose, record }: { open: boolean; onClose: () => vo
   };
 
   return (
-    <Modal title={`编辑 — ${record?.name}`} open={open} onCancel={onClose} width={600} footer={null} destroyOnClose>
+    <Modal title={`编辑 — ${record?.name}`} open={open} onCancel={onClose} width={600} footer={null} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={onFinish}>
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
         <Form.Item name="listen_path" label="监听路径" rules={[{ required: true }]}><Input /></Form.Item>
@@ -413,7 +413,7 @@ export default function ApiRecords() {
         title={`API 详情 — ${detailId}`}
         open={!!detailId}
         onClose={() => setDetailId(null)}
-        width={640}
+        size="large"
       >
         {detailId && (
           <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: 16, borderRadius: 8, overflow: 'auto', maxHeight: '70vh', fontSize: 13 }}>

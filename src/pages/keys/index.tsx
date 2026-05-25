@@ -127,7 +127,7 @@ function KeyModal({ open, onClose, editKey }: {
       onCancel={handleClose}
       width={480}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
     >
       {createdKey ? (
         <div>
