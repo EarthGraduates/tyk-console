@@ -366,16 +366,107 @@ export const auditLogDb = {
   },
 
   async eventTypes(): Promise<string[]> {
-    // Return distinct event types
     const rows = await rest('GET', '/audit_log', null, {
       select: 'event_type',
       order: 'event_type',
     });
-    // Deduplicate manually since PostgreSQL distinct needs special handling
     const types = new Set<string>();
     for (const row of rows) {
       if (row.event_type) types.add(row.event_type);
     }
     return Array.from(types).sort();
+  },
+};
+
+// ── security_config ──
+
+export interface SecurityConfig {
+  password_min_length: number;
+  password_require_upper: boolean;
+  password_require_digit: boolean;
+  password_require_special: boolean;
+  lockout_threshold: number;
+  lockout_duration_minutes: number;
+  session_timeout_hours: number;
+  rate_limit_per_minute: number;
+  max_concurrent_sessions: number;
+}
+
+const SECURITY_DEFAULTS: SecurityConfig = {
+  password_min_length: 8,
+  password_require_upper: true,
+  password_require_digit: true,
+  password_require_special: false,
+  lockout_threshold: 5,
+  lockout_duration_minutes: 30,
+  session_timeout_hours: 8,
+  rate_limit_per_minute: 100,
+  max_concurrent_sessions: 0,
+};
+
+function parseSecurityConfig(rows: { key: string; value: string }[]): SecurityConfig {
+  const map: Record<string, string> = {};
+  for (const r of rows) map[r.key] = r.value;
+  return {
+    password_min_length: Number(map.password_min_length) || SECURITY_DEFAULTS.password_min_length,
+    password_require_upper: map.password_require_upper !== 'false',
+    password_require_digit: map.password_require_digit !== 'false',
+    password_require_special: map.password_require_special === 'true',
+    lockout_threshold: Number(map.lockout_threshold) || SECURITY_DEFAULTS.lockout_threshold,
+    lockout_duration_minutes: Number(map.lockout_duration_minutes) || SECURITY_DEFAULTS.lockout_duration_minutes,
+    session_timeout_hours: Number(map.session_timeout_hours) || SECURITY_DEFAULTS.session_timeout_hours,
+    rate_limit_per_minute: Number(map.rate_limit_per_minute) || SECURITY_DEFAULTS.rate_limit_per_minute,
+    max_concurrent_sessions: Number(map.max_concurrent_sessions) ?? SECURITY_DEFAULTS.max_concurrent_sessions,
+  };
+}
+
+export const securityConfigDb = {
+  async get(): Promise<SecurityConfig> {
+    try {
+      const rows = await rest('GET', '/security_config', null, { select: 'key,value' });
+      return parseSecurityConfig(rows || []);
+    } catch {
+      return { ...SECURITY_DEFAULTS };
+    }
+  },
+
+  async set(config: SecurityConfig): Promise<void> {
+    await rest('POST', '/rpc/set_security_config', {
+      p_config: {
+        password_min_length: String(config.password_min_length),
+        password_require_upper: String(config.password_require_upper),
+        password_require_digit: String(config.password_require_digit),
+        password_require_special: String(config.password_require_special),
+        lockout_threshold: String(config.lockout_threshold),
+        lockout_duration_minutes: String(config.lockout_duration_minutes),
+        session_timeout_hours: String(config.session_timeout_hours),
+        rate_limit_per_minute: String(config.rate_limit_per_minute),
+        max_concurrent_sessions: String(config.max_concurrent_sessions),
+      },
+    });
+  },
+};
+
+// ── user_sessions ──
+
+export interface SessionRecord {
+  session_id: string;
+  user_id: string;
+  user_email: string;
+  user_display: string;
+  user_role: string;
+  client_ip: string | null;
+  user_agent: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export const sessionsDb = {
+  async listActive(): Promise<SessionRecord[]> {
+    return (await rest('POST', '/rpc/list_active_sessions', {})) as SessionRecord[];
+  },
+
+  async revoke(sessionId: string): Promise<void> {
+    await rest('POST', '/rpc/revoke_session', { p_session_id: sessionId });
   },
 };

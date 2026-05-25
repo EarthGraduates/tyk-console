@@ -8,7 +8,7 @@
  */
 
 import type { AuthProvider } from '@refinedev/core';
-import { getToken, setToken, removeToken, isTokenExpired, getPayload, decodeToken } from './jwt';
+import { getToken, setToken, removeToken, isTokenExpired, getPayload, getAuthHeader } from './jwt';
 import { getBizRole } from './permissions';
 
 async function rpcLogin(payload: Record<string, unknown>): Promise<{ token: string }> {
@@ -76,6 +76,18 @@ const authProvider: AuthProvider = {
   }),
 
   logout: async () => {
+    try {
+      const token = getToken();
+      if (token) {
+        await fetch('/db/rpc/logout', {
+          method: 'POST',
+          headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+      }
+    } catch {
+      // 服务端撤销失败不阻塞客户端登出
+    }
     removeToken();
     return { success: true, redirectTo: '/login' };
   },

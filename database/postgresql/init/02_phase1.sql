@@ -300,7 +300,7 @@ BEGIN
         'user', v_user.id::TEXT
     );
 
-    RETURN jsonb_build_object('si', v_signing_input, 'sig', v_signature);
+    RETURN jsonb_build_object('token', v_signing_input || '.' || v_signature);
 END;
 $$;
 
@@ -364,7 +364,10 @@ $$;
 -- 6. db_pre_request — PostgREST 每次请求前执行 ────────────────
 
 CREATE OR REPLACE FUNCTION ichse.db_pre_request() RETURNS VOID
-LANGUAGE PLPGSQL AS $$
+LANGUAGE PLPGSQL
+SECURITY DEFINER
+SET search_path = ichse, pg_catalog
+AS $$
 DECLARE
     v_claims       JSONB;
     v_user_id      UUID;
@@ -372,7 +375,6 @@ DECLARE
     v_secret_level TEXT;
     v_user_status  TEXT;
     v_locked_until TIMESTAMPTZ;
-    v_count        INTEGER;
 BEGIN
     -- 尝试读取 JWT claims（匿名请求无此字段）
     BEGIN
@@ -418,31 +420,6 @@ BEGIN
     PERFORM set_config('app.user_id', v_user_id::TEXT, TRUE);
     PERFORM set_config('app.role', v_role, TRUE);
     PERFORM set_config('app.secret_level', v_secret_level, TRUE);
-
-    -- 速率限制（滑动窗口，每分钟 100 次）
-    UPDATE ichse.rate_limit
-    SET request_count = CASE
-            WHEN now() - window_start > INTERVAL '1 minute' THEN 1
-            ELSE request_count + 1
-        END,
-        window_start = CASE
-            WHEN now() - window_start > INTERVAL '1 minute' THEN now()
-            ELSE window_start
-        END
-    WHERE user_id = v_user_id;
-
-    IF NOT FOUND THEN
-        INSERT INTO ichse.rate_limit (user_id, request_count, window_start)
-        VALUES (v_user_id, 1, now())
-        ON CONFLICT (user_id) DO NOTHING;
-    END IF;
-
-    SELECT request_count INTO v_count
-    FROM ichse.rate_limit WHERE user_id = v_user_id;
-
-    IF v_count > 100 THEN
-        RAISE SQLSTATE 'A0004' USING MESSAGE = '请求频率超限，请稍后重试';
-    END IF;
 END;
 $$;
 -- ============================================================
@@ -684,7 +661,7 @@ BEGIN
     v_signing_input := v_hdr_b64 || '.' || v_payload_b64;
     v_signature := replace(replace(replace(rtrim(encode(hmac(v_signing_input::BYTEA, v_secret::BYTEA, 'sha256'), 'base64'), '='), chr(10), ''), '+', '-'), '/', '_');
     
-    RETURN jsonb_build_object('si', v_signing_input, 'sig', v_signature);
+    RETURN jsonb_build_object('token', v_signing_input || '.' || v_signature);
 END;
 $$;
 GRANT EXECUTE ON FUNCTION ichse.auth_login(TEXT, TEXT) TO web_anon;
@@ -732,7 +709,7 @@ BEGIN
     v_signing_input := v_hdr_b64 || '.' || v_payload_b64;
     v_signature := replace(replace(replace(rtrim(encode(hmac(v_signing_input::BYTEA, v_secret::BYTEA, 'sha256'), 'base64'), '='), chr(10), ''), '+', '-'), '/', '_');
     
-    RETURN jsonb_build_object('si', v_signing_input, 'sig', v_signature);
+    RETURN jsonb_build_object('token', v_signing_input || '.' || v_signature);
 END;
 $$;
 GRANT EXECUTE ON FUNCTION ichse.auth_login(TEXT, TEXT) TO web_anon;

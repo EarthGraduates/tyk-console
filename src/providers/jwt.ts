@@ -9,6 +9,7 @@ const TOKEN_KEY = 'ichse_jwt';
 export interface JwtPayload {
   role: string;         // PG 角色（authenticated）
   sub: string;          // user_id (UUID)
+  jti?: string;         // JWT ID / 会话 UUID（P1 会话管理）
   biz_role: string;     // 业务角色
   email: string | null;
   phone: string | null;

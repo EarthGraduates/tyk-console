@@ -63,7 +63,9 @@ async function tykGet(path: string) {
  */
 async function fetchInactiveApiIds(): Promise<Set<string>> {
   try {
-    const res = await fetch('/db/api_definitions?status=eq.inactive&select=api_id');
+    const token = localStorage.getItem('ichse_jwt');
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch('/db/api_definitions?status=eq.inactive&select=api_id', { headers });
     if (!res.ok) return new Set();
     const data = await res.json();
     return new Set((data || []).map((r: any) => r.api_id));

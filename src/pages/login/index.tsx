@@ -43,7 +43,7 @@ export default function LoginPage() {
     >
       <Card
         style={{ width: 420, borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
-        bodyStyle={{ padding: '32px 32px 24px' }}
+        styles={{ body: { padding: '32px 32px 24px' } }}
       >
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Text strong style={{ fontSize: 22, color: 'rgba(0,0,0,0.85)' }}>

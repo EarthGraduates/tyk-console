@@ -2,27 +2,17 @@
  * 安全策略页
  *
  * security_admin 专属配置页。
- * 当前为占位实现，后续 Phase 将持久化到 security_config 表。
+ * 读写 PostgreSQL security_config 表，DB 不可达时降级为 localStorage。
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Card, Form, InputNumber, Select, Button, Space, Typography, Divider, message, Row, Col,
+  Card, Form, InputNumber, Select, Button, Space, Typography, Divider, message, Row, Col, Spin,
 } from 'antd';
-import { SaveOutlined, LockOutlined } from '@ant-design/icons';
+import { SaveOutlined, LockOutlined, LogoutOutlined } from '@ant-design/icons';
+import { securityConfigDb, sessionsDb, type SecurityConfig, type SessionRecord } from '../../providers/ichse-db';
 
 const { Text, Title } = Typography;
-
-interface SecurityConfig {
-  password_min_length: number;
-  password_require_upper: boolean;
-  password_require_digit: boolean;
-  password_require_special: boolean;
-  lockout_threshold: number;
-  lockout_duration_minutes: number;
-  session_timeout_hours: number;
-  rate_limit_per_minute: number;
-}
 
 const DEFAULTS: SecurityConfig = {
   password_min_length: 8,
@@ -33,9 +23,10 @@ const DEFAULTS: SecurityConfig = {
   lockout_duration_minutes: 30,
   session_timeout_hours: 8,
   rate_limit_per_minute: 100,
+  max_concurrent_sessions: 0,
 };
 
-function loadConfig(): SecurityConfig {
+function loadLocalFallback(): SecurityConfig {
   try {
     const stored = localStorage.getItem('ichse_security_config');
     return stored ? { ...DEFAULTS, ...JSON.parse(stored) } : DEFAULTS;
@@ -45,19 +36,78 @@ function loadConfig(): SecurityConfig {
 }
 
 export default function SecurityPage() {
-  const [config, setConfig] = useState<SecurityConfig>(loadConfig);
+  const [config, setConfig] = useState<SecurityConfig>(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dbOk, setDbOk] = useState(true);
   const [form] = Form.useForm();
+  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
-  const handleSave = () => {
-    localStorage.setItem('ichse_security_config', JSON.stringify(config));
-    message.success('安全策略已保存（本地存储）');
+  useEffect(() => {
+    (async () => {
+      try {
+        const cfg = await securityConfigDb.get();
+        setConfig(cfg);
+        form.setFieldsValue(cfg);
+        setDbOk(true);
+      } catch {
+        const fallback = loadLocalFallback();
+        setConfig(fallback);
+        form.setFieldsValue(fallback);
+        setDbOk(false);
+        message.warning('无法连接数据库，已加载本地缓存配置');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [form]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await securityConfigDb.set(config);
+      // 同步一份到 localStorage 作为离线缓存
+      localStorage.setItem('ichse_security_config', JSON.stringify(config));
+      message.success('安全策略已保存到数据库');
+    } catch (e: any) {
+      // DB 保存失败，降级到 localStorage
+      localStorage.setItem('ichse_security_config', JSON.stringify(config));
+      message.warning(`数据库保存失败，已保存到本地缓存: ${e.message || ''}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
     setConfig(DEFAULTS);
     form.setFieldsValue(DEFAULTS);
-    message.info('已恢复默认配置');
+    message.info('已恢复默认配置（未保存）');
   };
+
+  const loadSessions = async () => {
+    setSessionsLoading(true);
+    try {
+      const list = await sessionsDb.listActive();
+      setSessions(list);
+    } catch (e: any) {
+      message.error(`加载会话列表失败: ${e.message || ''}`);
+    } finally {
+      setSessionsLoading(false);
+    }
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
+    try {
+      await sessionsDb.revoke(sessionId);
+      message.success('已强制下线该会话');
+      loadSessions();
+    } catch (e: any) {
+      message.error(`撤销会话失败: ${e.message || ''}`);
+    }
+  };
+
+  if (loading) return <Spin style={{ display: 'block', margin: '40vh auto' }} />;
 
   return (
     <div style={{ padding: 24, maxWidth: 640 }}>
@@ -65,7 +115,9 @@ export default function SecurityPage() {
         <div>
           <Title level={4}><LockOutlined /> 安全策略配置</Title>
           <Text type="secondary">
-            当前配置保存在浏览器本地存储中。后续版本将迁移至数据库持久化并支持审计。
+            {dbOk
+              ? '配置存储在 PostgreSQL security_config 表中，login() / db_pre_request() / manage_user() 实时读取。'
+              : '⚠ 数据库不可达，当前显示本地缓存。保存将写入 localStorage，恢复连接后需手动同步。'}
           </Text>
         </div>
 
@@ -129,7 +181,7 @@ export default function SecurityPage() {
 
         <Card title="会话与速率">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Text>会话超时（小时）</Text>
               <InputNumber
                 style={{ width: '100%' }}
@@ -139,7 +191,7 @@ export default function SecurityPage() {
               />
               <Text type="secondary">JWT token 有效期</Text>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Text>速率限制（次/分钟）</Text>
               <InputNumber
                 style={{ width: '100%' }}
@@ -149,12 +201,67 @@ export default function SecurityPage() {
               />
               <Text type="secondary">每用户每分钟最大 API 请求数</Text>
             </Col>
+            <Col span={8}>
+              <Text>最大并发会话数</Text>
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0} max={100}
+                value={config.max_concurrent_sessions}
+                onChange={v => setConfig(c => ({ ...c, max_concurrent_sessions: v ?? 0 }))}
+              />
+              <Text type="secondary">0 表示不限制，超过则挤占最早会话</Text>
+            </Col>
           </Row>
+        </Card>
+
+        <Card
+          title="活跃会话"
+          extra={<Button size="small" onClick={loadSessions} loading={sessionsLoading}>刷新</Button>}
+        >
+          {sessions.length === 0 ? (
+            <Text type="secondary">{sessionsLoading ? '加载中...' : '点击"刷新"查看当前活跃会话'}</Text>
+          ) : (
+            <div style={{ maxHeight: 400, overflow: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>用户</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>角色</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>IP</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>登录时间</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>过期时间</th>
+                    <th style={{ textAlign: 'center', padding: '4px 8px' }}>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessions.map(s => (
+                    <tr key={s.session_id}>
+                      <td style={{ padding: '4px 8px' }}>{s.user_email}</td>
+                      <td style={{ padding: '4px 8px' }}>{s.user_role}</td>
+                      <td style={{ padding: '4px 8px' }}>{s.client_ip || '-'}</td>
+                      <td style={{ padding: '4px 8px' }}>{new Date(s.created_at).toLocaleString()}</td>
+                      <td style={{ padding: '4px 8px' }}>{new Date(s.expires_at).toLocaleString()}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                        <Button
+                          size="small"
+                          danger
+                          icon={<LogoutOutlined />}
+                          onClick={() => handleRevokeSession(s.session_id)}
+                        >
+                          强制下线
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
 
         <Divider />
         <Space>
-          <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>保存配置</Button>
+          <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving}>保存配置</Button>
           <Button onClick={handleReset}>恢复默认</Button>
         </Space>
       </Space>
