@@ -26,6 +26,7 @@ import {
 } from 'antd';
 import { ReloadOutlined, PauseCircleOutlined, SyncOutlined } from '@ant-design/icons';
 import { getGatewayUrl, getSecret } from '../../providers/tyk-data-provider';
+import { useIsRole } from '../../providers/permissions';
 
 const { Text } = Typography;
 
@@ -95,6 +96,9 @@ export default function Dashboard() {
   // ── Reload 追踪 ──
   const [reloadCount, setReloadCount] = useState(Number(localStorage.getItem(RELOAD_KEY) || 0));
   const [reloadTime, setReloadTime] = useState(localStorage.getItem(RELOAD_TIME_KEY) || '');
+
+  // ── 权限 ──
+  const isSystemAdmin = useIsRole('system_admin');
 
   // ── 自动 reload 开关 ──
   const [autoReloadEnabled, setAutoReloadEnabled] = useState(() =>
@@ -310,7 +314,7 @@ export default function Dashboard() {
             </Space>
           </Col>
           <Col>
-            <Button icon={<ReloadOutlined />} onClick={handleReload} type="primary">一键重载</Button>
+            {isSystemAdmin && <Button icon={<ReloadOutlined />} onClick={handleReload} type="primary">一键重载</Button>}
           </Col>
         </Row>
       </Card>
@@ -328,6 +332,7 @@ export default function Dashboard() {
       )}
 
       {/* 自动 reload 控制条 */}
+      {isSystemAdmin && (
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space>
           <Switch checked={autoReloadEnabled} onChange={handleToggleAutoReload} />
@@ -336,6 +341,7 @@ export default function Dashboard() {
           <Text type="secondary">{autoReloadEnabled ? '每次修改后自动重载' : '暂停中，修改不会立即生效'}</Text>
         </Space>
       </Card>
+      )}
 
       {/* 全局统计卡片 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>

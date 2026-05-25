@@ -1,28 +1,21 @@
 /**
- * ichse-asset-share-center — Tyk 网关管理界面 (v1)
+ * ichse-asset-share-center — Tyk 网关管理界面 (v1.1)
  *
  * ## 架构概览
  * ```
  * Refine UI (浏览器)
  *   ├── Data Provider → Tyk Gateway API (直连，x-tyk-authorization)
  *   │     apis CRUD / keys CRUD / health / reload
+ *   ├── Data Provider → PostgreSQL via PostgREST
+ *   │     api-records / users / audit_log
  *   └── Docker 管理服务 (dockerode, :3001)
  *         容器启停 / 状态查询
  * ```
  *
- * ## 技术栈
- * - Refine v5 + Ant Design v5 + React 19
- * - Supabase Auth（登录控制）
- * - Vite（开发代理 /tyk/* → :8080，/hello → :8080）
- * - TypeScript（阿里前端规约）
- *
- * ## 数据源
- * - `default` provider → Supabase（用户认证）
- * - `tyk` provider → Tyk Gateway（apis、keys CRUD）
- *
- * ## 降级策略
- * - Docker 管理服务不可达：网关管理页按钮灰色 + Alert，其他页面不受影响
- * - Tyk Gateway 不可达：全局 Banner 提示 + 15s 自动重试
+ * ## Phase 2: RBAC
+ * - 5 角色菜单分流：system_admin / security_admin / audit_admin / business_user / viewer
+ * - RequireRole 路由守卫
+ * - 页内按钮权限控制
  *
  * @module App
  */
@@ -37,37 +30,81 @@ import '@refinedev/antd/dist/reset.css';
 import routerProvider, { DocumentTitleHandler, UnsavedChangesNotifier } from '@refinedev/react-router';
 import { App as AntdApp, Menu } from 'antd';
 import {
-  DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined, CloudServerOutlined, HistoryOutlined,
-  LogoutOutlined,
+  DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined,
+  CloudServerOutlined, HistoryOutlined, LogoutOutlined,
+  UserOutlined, AuditOutlined, SafetyOutlined, BarChartOutlined,
 } from '@ant-design/icons';
 import { BrowserRouter, Route, Routes, useNavigate, useLocation, Navigate } from 'react-router';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ColorModeContextProvider } from './contexts/color-mode';
 import authProvider from './providers/auth';
 import { dataProviderMap } from './providers/data';
+import { useBizRole, RequireRole, type BizRole } from './providers/permissions';
+
 import Dashboard from './pages/dashboard';
+import BusinessDashboard from './pages/business';
 import SettingsPage from './pages/settings';
 import GatewayPage from './pages/gateway';
 import { ApiList } from './pages/apis';
 import KeyList from './pages/keys';
 import ApiRecords from './pages/api-records';
+import UsersPage from './pages/users';
+import AuditPage from './pages/audit';
+import SecurityPage from './pages/security';
 import LoginPage from './pages/login';
 
 const SIDER_WIDTH = 200;
 const SIDER_COLLAPSED_WIDTH = 80;
 
+interface MenuItem {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  allowedRoles: BizRole[];
+}
+
+/** 全量菜单定义，每个菜单项声明允许的角色 */
+const ALL_MENU_ITEMS: MenuItem[] = [
+  { key: '/',            icon: <DashboardOutlined />,    label: '系统仪表板',  allowedRoles: ['system_admin', 'security_admin'] },
+  { key: '/business',    icon: <BarChartOutlined />,      label: '业务仪表板',  allowedRoles: ['audit_admin', 'business_user', 'viewer'] },
+  { key: '/gateway',     icon: <CloudServerOutlined />,   label: '网关管理',    allowedRoles: ['system_admin'] },
+  { key: '/apis',        icon: <ApiOutlined />,           label: 'API 服务',    allowedRoles: ['system_admin', 'business_user'] },
+  { key: '/keys',        icon: <KeyOutlined />,           label: '密钥管理',     allowedRoles: ['system_admin', 'business_user'] },
+  { key: '/api-records', icon: <HistoryOutlined />,       label: '历史记录',    allowedRoles: ['system_admin', 'security_admin', 'audit_admin', 'business_user', 'viewer'] },
+  { key: '/users',       icon: <UserOutlined />,          label: '用户管理',     allowedRoles: ['system_admin', 'security_admin'] },
+  { key: '/audit',       icon: <AuditOutlined />,         label: '审计日志',    allowedRoles: ['system_admin', 'audit_admin'] },
+  { key: '/security',    icon: <SafetyOutlined />,        label: '安全策略',    allowedRoles: ['security_admin'] },
+  { key: '/settings',    icon: <SettingOutlined />,       label: '系统设置',    allowedRoles: ['system_admin', 'security_admin', 'audit_admin', 'business_user', 'viewer'] },
+];
+
 /**
  * 应用主布局（侧边栏 + 内容区）
- * - 左侧浅色侧边栏：可折叠，5 个菜单项
- * - 右侧 Content：浅灰背景 #f5f5f5
+ *
+ * 侧边栏菜单根据当前用户角色自动过滤。
  */
 function AppLayout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const { mutate: logout } = useLogout();
+  const role = useBizRole();
 
   const siderWidth = collapsed ? SIDER_COLLAPSED_WIDTH : SIDER_WIDTH;
+
+  // 按角色过滤菜单项
+  const menuItems = useMemo(
+    () =>
+      ALL_MENU_ITEMS
+        .filter(item => role && item.allowedRoles.includes(role))
+        .map(({ key, icon, label }) => ({ key, icon, label })),
+    [role],
+  );
+
+  // selectedKeys: 精确匹配或取第一段
+  const pathFirst = `/${location.pathname.split('/')[1]}`;
+  const selectedKey = menuItems.some(m => m.key === location.pathname)
+    ? location.pathname
+    : pathFirst;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -98,15 +135,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
         <Menu
           mode="inline"
           inlineCollapsed={collapsed}
-          selectedKeys={[location.pathname.split('/')[1] ? `/${location.pathname.split('/')[1]}` : '/']}
-          items={[
-            { key: '/', icon: <DashboardOutlined />, label: '仪表板' },
-            { key: '/gateway', icon: <CloudServerOutlined />, label: '网关' },
-            { key: '/apis', icon: <ApiOutlined />, label: '服务' },
-            { key: '/keys', icon: <KeyOutlined />, label: '密钥' },
-            { key: '/api-records', icon: <HistoryOutlined />, label: '历史记录' },
-            { key: '/settings', icon: <SettingOutlined />, label: '设置' },
-          ]}
+          selectedKeys={[selectedKey]}
+          items={menuItems}
           onClick={({ key }) => navigate(key)}
           style={{ borderInlineEnd: 'none', background: 'transparent', flex: 1 }}
         />
@@ -142,29 +172,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * 应用入口
- *
- * ## Provider 配置
- * - dataProvider：双数据源（default: Supabase, tyk: Tyk Gateway）
- * - authProvider：Supabase Auth（邮箱/密码登录）
- * - routerProvider：react-router v7
- *
- * ## 资源注册
- * - apis → tyk data provider（useList/useCreate 挂钩）
- * - keys → tyk data provider（同上）
- *
- * ## 路由表
- * | 路径         | 页面        |
- * |-------------|------------|
- * | /           | 仪表板      |
- * | /gateway    | 网关管理    |
- * | /apis       | API 列表    |
- * | /apis/:id   | API 详情    |
- * | /keys       | 密钥管理    |
- * | /settings   | 网关配置    |
- * | /login      | 登录页      |
- */
 function App() {
   return (
     <BrowserRouter>
@@ -192,12 +199,16 @@ function App() {
                       <Authenticated key="protected" fallback={<Navigate to="/login" />}>
                         <AppLayout>
                           <Routes>
-                            <Route index element={<Dashboard />} />
-                            <Route path="/settings" element={<SettingsPage />} />
-                            <Route path="/gateway" element={<GatewayPage />} />
-                            <Route path="/apis" element={<ApiList />} />
-                            <Route path="/keys" element={<KeyList />} />
+                            <Route index element={<RequireRole roles={['system_admin', 'security_admin']}><Dashboard /></RequireRole>} />
+                            <Route path="/business" element={<RequireRole roles={['audit_admin', 'business_user', 'viewer']}><BusinessDashboard /></RequireRole>} />
+                            <Route path="/gateway" element={<RequireRole roles={['system_admin']}><GatewayPage /></RequireRole>} />
+                            <Route path="/apis" element={<RequireRole roles={['system_admin', 'business_user']}><ApiList /></RequireRole>} />
+                            <Route path="/keys" element={<RequireRole roles={['system_admin', 'business_user']}><KeyList /></RequireRole>} />
                             <Route path="/api-records" element={<ApiRecords />} />
+                            <Route path="/users" element={<RequireRole roles={['system_admin', 'security_admin']}><UsersPage /></RequireRole>} />
+                            <Route path="/audit" element={<RequireRole roles={['system_admin', 'audit_admin']}><AuditPage /></RequireRole>} />
+                            <Route path="/security" element={<RequireRole roles={['security_admin']}><SecurityPage /></RequireRole>} />
+                            <Route path="/settings" element={<SettingsPage />} />
                           </Routes>
                         </AppLayout>
                       </Authenticated>

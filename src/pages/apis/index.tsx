@@ -18,6 +18,7 @@ import { useList, useCreate, useDelete, useOne } from '@refinedev/core';
 import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App, Drawer, Spin } from 'antd';
 import { PlusOutlined, CopyOutlined } from '@ant-design/icons';
 import { useState, useMemo } from 'react';
+import { HideFromViewer } from '../../providers/permissions';
 
 /**
  * API 创建/克隆 Modal 组件
@@ -229,10 +230,12 @@ export function ApiList() {
       render: (_: any, r: any) => (
         <Space>
           <Button size="small" onClick={() => setDetailId(r.api_id)}>详情</Button>
-          <Button size="small" icon={<CopyOutlined />} onClick={() => { setCloneSource(r); setCreateOpen(true); }}>克隆</Button>
-          <Popconfirm title="确定删除？" placement="left" onConfirm={() => deleteApi({ resource: 'apis', id: r.api_id })}>
-            <Button size="small" danger>删除</Button>
-          </Popconfirm>
+          <HideFromViewer>
+            <Button size="small" icon={<CopyOutlined />} onClick={() => { setCloneSource(r); setCreateOpen(true); }}>克隆</Button>
+            <Popconfirm title="确定删除？" placement="left" onConfirm={() => deleteApi({ resource: 'apis', id: r.api_id })}>
+              <Button size="small" danger>删除</Button>
+            </Popconfirm>
+          </HideFromViewer>
         </Space>
       ) },
   ];
@@ -251,7 +254,9 @@ export function ApiList() {
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setCloneSource(null); setCreateOpen(true); }}>创建 API</Button>
+        <HideFromViewer>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setCloneSource(null); setCreateOpen(true); }}>创建 API</Button>
+        </HideFromViewer>
         <Input.Search
           placeholder="搜索名称、API ID、路径、上游"
           allowClear

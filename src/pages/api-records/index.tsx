@@ -16,6 +16,7 @@ import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs
 import { PlusOutlined, SyncOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { useState, useMemo, useEffect } from 'react';
 import { deactivateApi, reactivateApi, syncApiToTyk, deleteApiWithKeyCleanup } from '../../providers/api-lifecycle';
+import { HideFromViewer } from '../../providers/permissions';
 
 // ── 创建 Modal ──
 function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -346,21 +347,23 @@ export default function ApiRecords() {
       render: (_: any, r: any) => (
         <Space size="small">
           <Button size="small" onClick={() => setDetailId(r.api_id)}>详情</Button>
-          <Button size="small" onClick={() => setEditRecord(r)}>编辑</Button>
-          {r.status !== 'inactive' && r.sync_status !== 'synced' && (
-            <Button size="small" icon={<SyncOutlined />} onClick={() => syncToTyk(r)}>同步</Button>
-          )}
-          {r.status === 'inactive' && (
-            <Button size="small" icon={<PlayCircleOutlined />} onClick={() => reactivate(r)}>启用</Button>
-          )}
-          {r.status !== 'inactive' && (
-            <Popconfirm title={`确定停用「${r.name}」？可从历史记录中重新启用。`} onConfirm={() => deactivate(r)}>
-              <Button size="small" icon={<StopOutlined />}>停用</Button>
+          <HideFromViewer>
+            <Button size="small" onClick={() => setEditRecord(r)}>编辑</Button>
+            {r.status !== 'inactive' && r.sync_status !== 'synced' && (
+              <Button size="small" icon={<SyncOutlined />} onClick={() => syncToTyk(r)}>同步</Button>
+            )}
+            {r.status === 'inactive' && (
+              <Button size="small" icon={<PlayCircleOutlined />} onClick={() => reactivate(r)}>启用</Button>
+            )}
+            {r.status !== 'inactive' && (
+              <Popconfirm title={`确定停用「${r.name}」？可从历史记录中重新启用。`} onConfirm={() => deactivate(r)}>
+                <Button size="small" icon={<StopOutlined />}>停用</Button>
+              </Popconfirm>
+            )}
+            <Popconfirm title={`确定删除「${r.name}」？将同时删除关联的密钥，不可恢复。`} onConfirm={() => deleteRecord(r)}>
+              <Button size="small" danger>删除</Button>
             </Popconfirm>
-          )}
-          <Popconfirm title={`确定删除「${r.name}」？将同时删除关联的密钥，不可恢复。`} onConfirm={() => deleteRecord(r)}>
-            <Button size="small" danger>删除</Button>
-          </Popconfirm>
+          </HideFromViewer>
         </Space>
       ),
     },
@@ -380,7 +383,9 @@ export default function ApiRecords() {
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>创建 API</Button>
+        <HideFromViewer>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>创建 API</Button>
+        </HideFromViewer>
         <Input.Search
           placeholder="搜索名称、API ID、路径、上游"
           allowClear

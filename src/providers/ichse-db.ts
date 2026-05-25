@@ -12,6 +12,7 @@
 
 // Vite proxy: /db/* → http://localhost:3001/*
 import { getAuthHeader } from './jwt';
+import { getBizRole } from './permissions';
 
 async function rest(method: string, path: string, body?: any, params?: Record<string, string>): Promise<any> {
   const url = new URL(`/db${path}`, window.location.origin);
@@ -199,11 +200,92 @@ export const apiKeysDb = {
 
 // ── users ──
 
+export interface UserRecord {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  display_name: string;
+  is_system: boolean;
+  role?: string;
+  secret_level?: string;
+  status: string;
+  last_login_at?: string;
+  failed_attempts?: number;
+  locked_until?: string;
+  password_changed_at?: string;
+  created_at: string;
+}
+
+function userView(): string {
+  const role = getBizRole();
+  return role === 'security_admin' ? '/users_secadmin_view' : '/users_sysadmin_view';
+}
+
 export const usersDb = {
+  async list(): Promise<UserRecord[]> {
+    return (await rest('GET', userView(), null, { order: 'created_at.desc' })) as UserRecord[];
+  },
+
+  async getById(id: string): Promise<UserRecord | null> {
+    const rows = await rest('GET', userView(), null, { id: `eq.${id}` });
+    return rows?.[0] ?? null;
+  },
+
+  /** 所有写操作通过 ichse.manage_user RPC（SECURITY DEFINER） */
+  async create(params: {
+    email: string;
+    password: string;
+    display_name: string;
+    phone?: string;
+    role?: string;
+    secret_level?: string;
+  }) {
+    return await rest('POST', '/rpc/manage_user', {
+      p_action: 'create',
+      p_email: params.email,
+      p_password: params.password,
+      p_display_name: params.display_name,
+      p_phone: params.phone ?? null,
+      p_role: params.role ?? 'business_user',
+      p_secret_level: params.secret_level ?? '内部',
+    });
+  },
+
+  async update(id: string, params: {
+    email?: string;
+    phone?: string;
+    display_name?: string;
+    role?: string;
+    secret_level?: string;
+    status?: string;
+  }) {
+    return await rest('POST', '/rpc/manage_user', {
+      p_action: 'update',
+      p_user_id: id,
+      ...params,
+    });
+  },
+
+  async disable(id: string) {
+    return await rest('POST', '/rpc/manage_user', { p_action: 'disable', p_user_id: id });
+  },
+
+  async enable(id: string) {
+    return await rest('POST', '/rpc/manage_user', { p_action: 'enable', p_user_id: id });
+  },
+
+  async resetPassword(id: string, password: string) {
+    return await rest('POST', '/rpc/manage_user', { p_action: 'reset_password', p_user_id: id, p_password: password });
+  },
+
+  async delete(id: string) {
+    return await rest('POST', '/rpc/manage_user', { p_action: 'delete', p_user_id: id });
+  },
+
+  // legacy compat
   async ensureUser(authUserId: string, email: string) {
     const rows = await rest('GET', '/users', null, { auth_user_id: `eq.${authUserId}` });
     if (rows?.length) return rows[0];
-
     const created = await rest('POST', '/users', {
       auth_user_id: authUserId,
       email,
@@ -217,5 +299,83 @@ export const usersDb = {
   async getSystemUserId() {
     const rows = await rest('GET', '/users', null, { display_name: 'eq.system' });
     return rows?.[0]?.id || null;
+  },
+};
+
+// ── audit_log ──
+
+export interface AuditLogRecord {
+  id: number;
+  event_time: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_role: string | null;
+  event_type: string;
+  event_success: boolean;
+  target_type: string | null;
+  target_id: string | null;
+  target_detail: Record<string, unknown> | null;
+  changes: Record<string, unknown> | null;
+  client_ip: string | null;
+  user_agent: string | null;
+  error_message: string | null;
+}
+
+export const auditLogDb = {
+  async list(params?: {
+    limit?: number;
+    offset?: number;
+    event_type?: string;
+    user_id?: string;
+    from?: string;
+    to?: string;
+  }): Promise<AuditLogRecord[]> {
+    const q: Record<string, string> = { order: 'event_time.desc' };
+    if (params?.limit) q.limit = String(params.limit);
+    if (params?.offset) q.offset = String(params.offset);
+    if (params?.event_type) q.event_type = `eq.${params.event_type}`;
+    if (params?.user_id) q.user_id = `eq.${params.user_id}`;
+
+    // date range uses PostgREST range syntax
+    let path = '/audit_log';
+    const andParams: string[] = [];
+    if (params?.from) andParams.push(`event_time=gte.${encodeURIComponent(params.from)}`);
+    if (params?.to) andParams.push(`event_time=lte.${encodeURIComponent(params.to)}`);
+    if (andParams.length > 0) {
+      // Use Prefer: params=single-object or build URL manually
+      const url = new URL(`/db/audit_log?order=event_time.desc`, window.location.origin);
+      if (params?.limit) url.searchParams.set('limit', String(params.limit));
+      if (params?.offset) url.searchParams.set('offset', String(params.offset));
+      if (params?.event_type) url.searchParams.set('event_type', `eq.${params.event_type}`);
+      if (params?.user_id) url.searchParams.set('user_id', `eq.${params.user_id}`);
+      andParams.forEach(p => {
+        const [k, v] = p.split('=');
+        url.searchParams.set(k, v);
+      });
+      const headers: Record<string, string> = { ...getAuthHeader() };
+      const res = await fetch(url.toString(), { headers });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`PostgREST GET /audit_log: ${res.status} ${err.substring(0, 200)}`);
+      }
+      const text = await res.text();
+      return text ? JSON.parse(text) : [];
+    }
+
+    return (await rest('GET', path, null, q)) as AuditLogRecord[];
+  },
+
+  async eventTypes(): Promise<string[]> {
+    // Return distinct event types
+    const rows = await rest('GET', '/audit_log', null, {
+      select: 'event_type',
+      order: 'event_type',
+    });
+    // Deduplicate manually since PostgreSQL distinct needs special handling
+    const types = new Set<string>();
+    for (const row of rows) {
+      if (row.event_type) types.add(row.event_type);
+    }
+    return Array.from(types).sort();
   },
 };

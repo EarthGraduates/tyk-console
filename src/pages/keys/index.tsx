@@ -21,6 +21,7 @@ import { Table, Form, Input, InputNumber, Button, Space, Tag, Popconfirm, Modal,
 import { PlusOutlined } from '@ant-design/icons';
 import { useState, useEffect, useMemo } from 'react';
 import dayjs from 'dayjs';
+import { HideFromViewer } from '../../providers/permissions';
 
 const { Text } = Typography;
 
@@ -234,21 +235,23 @@ export default function KeyList() {
       title: '操作',
       key: 'actions',
       render: (_: any, r: any) => (
-        <Space>
-          <Button size="small" onClick={() => openEdit(r)}>编辑</Button>
-          <Popconfirm
-            title="确定删除此密钥？"
-            placement="left"
-            onConfirm={() => {
-              deleteKey({ resource: 'keys', id: r.key_id }, {
-                onSuccess: () => message.success('已删除'),
-                onError: (e: any) => message.error(`删除失败: ${e.message}`),
-              });
-            }}
-          >
-            <Button size="small" danger>删除</Button>
-          </Popconfirm>
-        </Space>
+        <HideFromViewer>
+          <Space>
+            <Button size="small" onClick={() => openEdit(r)}>编辑</Button>
+            <Popconfirm
+              title="确定删除此密钥？"
+              placement="left"
+              onConfirm={() => {
+                deleteKey({ resource: 'keys', id: r.key_id }, {
+                  onSuccess: () => message.success('已删除'),
+                  onError: (e: any) => message.error(`删除失败: ${e.message}`),
+                });
+              }}
+            >
+              <Button size="small" danger>删除</Button>
+            </Popconfirm>
+          </Space>
+        </HideFromViewer>
       ),
     },
   ];
@@ -268,7 +271,9 @@ export default function KeyList() {
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>创建密钥</Button>
+        <HideFromViewer>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>创建密钥</Button>
+        </HideFromViewer>
         <Input.Search
           placeholder="搜索 Key ID、授权 API"
           allowClear

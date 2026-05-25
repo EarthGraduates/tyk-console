@@ -8,7 +8,8 @@
  */
 
 import type { AuthProvider } from '@refinedev/core';
-import { getToken, setToken, removeToken, isTokenExpired, getPayload } from './jwt';
+import { getToken, setToken, removeToken, isTokenExpired, getPayload, decodeToken } from './jwt';
+import { getBizRole } from './permissions';
 
 async function rpcLogin(payload: Record<string, unknown>): Promise<{ token: string }> {
   const url = new URL('/db/rpc/login', window.location.origin);
@@ -48,7 +49,9 @@ const authProvider: AuthProvider = {
       }
 
       setToken(token);
-      return { success: true, redirectTo: '/' };
+      const role = getBizRole();
+      const isAdmin = role === 'system_admin' || role === 'security_admin';
+      return { success: true, redirectTo: isAdmin ? '/' : '/business' };
     } catch (error: any) {
       return {
         success: false,
