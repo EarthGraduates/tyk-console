@@ -4,7 +4,24 @@ Tyk Gateway OSS 管理界面 — 医疗行业 API 网关资产共享中心
 
 | 版本 | 品牌色 | 框架 |
 |------|--------|------|
-| V1.3 | 极光绿 `#52c41a` | Refine v5 + Ant Design v5.23 → v6 + React 19 |
+| V1.3 | 极光绿 `#52c41a` | Refine v6 + Ant Design v6.4 + React 19 |
+
+---
+
+## 技术栈
+
+| 组件 | 版本 | 用途 |
+|------|------|------|
+| Refine (antd) | v6.0 | 前端框架（Data Provider + Auth Provider） |
+| Refine (core) | v5.0 | 核心状态管理 |
+| Ant Design | v6.4 | UI 组件库 |
+| React | v19.1 | 前端运行时 |
+| TypeScript | v5.8 | 类型系统 |
+| Vite | v6.3 | 构建工具 |
+| Tyk Gateway OSS | v5.12 | API 网关（被管理对象） |
+| PostgreSQL | v17.10 | 管理数据库 |
+| PostgREST | v14.11 | DB → REST API 桥接 |
+| Docker (Colima) | — | 容器运行时 |
 
 ---
 
