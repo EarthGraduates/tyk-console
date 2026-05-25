@@ -326,43 +326,39 @@ export const auditLogDb = {
     limit?: number;
     offset?: number;
     event_type?: string;
-    user_id?: string;
+    user_email?: string;
     from?: string;
     to?: string;
-  }): Promise<AuditLogRecord[]> {
-    const q: Record<string, string> = { order: 'event_time.desc' };
-    if (params?.limit) q.limit = String(params.limit);
-    if (params?.offset) q.offset = String(params.offset);
-    if (params?.event_type) q.event_type = `eq.${params.event_type}`;
-    if (params?.user_id) q.user_id = `eq.${params.user_id}`;
+  }): Promise<{ data: AuditLogRecord[]; total: number }> {
+    const parts: string[] = ['order=event_time.desc'];
+    if (params?.limit) parts.push(`limit=${params.limit}`);
+    if (params?.offset) parts.push(`offset=${params.offset}`);
+    if (params?.event_type) parts.push(`event_type=eq.${params.event_type}`);
+    if (params?.user_email) parts.push(`user_email=ilike.*${params.user_email}*`);
 
-    // date range uses PostgREST range syntax
-    let path = '/audit_log';
-    const andParams: string[] = [];
-    if (params?.from) andParams.push(`event_time=gte.${encodeURIComponent(params.from)}`);
-    if (params?.to) andParams.push(`event_time=lte.${encodeURIComponent(params.to)}`);
-    if (andParams.length > 0) {
-      // Use Prefer: params=single-object or build URL manually
-      const url = new URL(`/db/audit_log?order=event_time.desc`, window.location.origin);
-      if (params?.limit) url.searchParams.set('limit', String(params.limit));
-      if (params?.offset) url.searchParams.set('offset', String(params.offset));
-      if (params?.event_type) url.searchParams.set('event_type', `eq.${params.event_type}`);
-      if (params?.user_id) url.searchParams.set('user_id', `eq.${params.user_id}`);
-      andParams.forEach(p => {
-        const [k, v] = p.split('=');
-        url.searchParams.set(k, v);
-      });
-      const headers: Record<string, string> = { ...getAuthHeader() };
-      const res = await fetch(url.toString(), { headers });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`PostgREST GET /audit_log: ${res.status} ${err.substring(0, 200)}`);
-      }
-      const text = await res.text();
-      return text ? JSON.parse(text) : [];
+    // PostgREST 时间范围用 and 逻辑组，避免逗号分隔的同字段多操作符语法问题
+    if (params?.from && params?.to) {
+      parts.push(`and=(event_time.gte.${params.from},event_time.lte.${params.to})`);
+    } else if (params?.from) {
+      parts.push(`event_time=gte.${params.from}`);
+    } else if (params?.to) {
+      parts.push(`event_time=lte.${params.to}`);
     }
 
-    return (await rest('GET', path, null, q)) as AuditLogRecord[];
+    const url = `${window.location.origin}/db/audit_log?${parts.join('&')}`;
+
+    const res = await fetch(url, {
+      headers: { ...getAuthHeader(), Prefer: 'count=exact' },
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`PostgREST GET /audit_log: ${res.status} ${err.substring(0, 200)}`);
+    }
+    const contentRange = res.headers.get('Content-Range');
+    const total = contentRange ? parseInt(contentRange.split('/')[1] || '0', 10) : 0;
+    const text = await res.text();
+    const data = (text ? JSON.parse(text) : []) as AuditLogRecord[];
+    return { data, total };
   },
 
   async eventTypes(): Promise<string[]> {

@@ -2,14 +2,14 @@
  * 审计日志页
  *
  * audit_admin / system_admin 查看。
- * RLS 已在 DB 层限制，前端直接查 audit_log 表。
+ * 服务端分页 + 筛选，支持 CSV 导出。
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   Card, Table, Tag, Space, DatePicker, Select, Input, Button, Typography,
 } from 'antd';
-import { SearchOutlined, ReloadOutlined, ExportOutlined } from '@ant-design/icons';
+import { SearchOutlined, ExportOutlined } from '@ant-design/icons';
 import { auditLogDb, type AuditLogRecord } from '../../providers/ichse-db';
 
 const { Text } = Typography;
@@ -25,6 +25,7 @@ const EVENT_COLORS: Record<string, string> = {
   permission_change: 'purple',
   audit_view: 'default', audit_export: 'default',
   password_change: 'orange',
+  session_revoke: 'orange',
   gateway_restart: 'orange', gateway_stop: 'red',
 };
 
@@ -35,27 +36,38 @@ const COMMON_EVENT_TYPES = [
   'key_create', 'key_revoke',
   'audit_view', 'audit_export',
   'password_change',
+  'session_revoke',
   'gateway_restart', 'gateway_stop',
   'permission_change',
 ];
 
+interface QueryParams {
+  event_type?: string;
+  user_email?: string;
+  from?: string;
+  to?: string;
+}
+
 export default function AuditPage() {
   const [logs, setLogs] = useState<AuditLogRecord[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [eventTypes, setEventTypes] = useState<string[]>([]);
-  const [filters, setFilters] = useState<{
-    event_type?: string;
-    user_id?: string;
-    from?: string;
-    to?: string;
-    limit: number;
-  }>({ limit: 200 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(30);
+  const [filters, setFilters] = useState<QueryParams>({});
 
-  const fetchLogs = useCallback(async () => {
+  const fetchLogs = useCallback(async (p: number, ps: number) => {
     setLoading(true);
     try {
-      const data = await auditLogDb.list(filters);
+      const offset = (p - 1) * ps;
+      const { data, total: t } = await auditLogDb.list({
+        ...filters,
+        limit: ps,
+        offset,
+      });
       setLogs(data);
+      setTotal(t);
     } catch (e: any) {
       console.error('Audit log fetch error:', e);
     } finally {
@@ -63,35 +75,48 @@ export default function AuditPage() {
     }
   }, [filters]);
 
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+  useEffect(() => { fetchLogs(page, pageSize); }, [fetchLogs, page, pageSize]);
 
   useEffect(() => {
     auditLogDb.eventTypes().then(setEventTypes).catch(() => {});
   }, []);
 
-  const handleExport = () => {
-    const csv = [
-      ['时间', '用户', '角色', '事件', '成功', '目标类型', '目标ID', '详情', 'IP'].join(','),
-      ...logs.map(l => [
-        l.event_time,
-        l.user_email || '',
-        l.user_role || '',
-        l.event_type,
-        l.event_success ? '是' : '否',
-        l.target_type || '',
-        l.target_id || '',
-        l.target_detail ? JSON.stringify(l.target_detail).replace(/"/g, '""') : '',
-        l.client_ip || '',
-      ].map(v => `"${v}"`).join(',')),
-    ].join('\n');
+  const handleQuery = () => {
+    setPage(1);
+    fetchLogs(1, pageSize);
+  };
 
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit_log_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = () => {
+    // 导出当前查询的全部结果（最多 10000 条）
+    auditLogDb.list({ ...filters, limit: 10000, offset: 0 }).then(({ data }) => {
+      const csv = [
+        ['时间', '用户', '角色', '事件', '成功', '目标类型', '目标ID', '详情', 'IP'].join(','),
+        ...data.map(l => [
+          l.event_time,
+          l.user_email || '',
+          l.user_role || '',
+          l.event_type,
+          l.event_success ? '是' : '否',
+          l.target_type || '',
+          l.target_id || '',
+          l.target_detail ? JSON.stringify(l.target_detail).replace(/"/g, '""') : '',
+          l.client_ip || '',
+        ].map(v => `"${v}"`).join(',')),
+      ].join('\n');
+
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit_log_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }).catch(() => {});
+  };
+
+  const handleTableChange = (pag: any) => {
+    setPage(pag.current);
+    setPageSize(pag.pageSize);
   };
 
   const columns = [
@@ -127,7 +152,7 @@ export default function AuditPage() {
         title="审计日志"
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchLogs}>刷新</Button>
+            <Button icon={<SearchOutlined />} onClick={handleQuery}>查询</Button>
             <Button icon={<ExportOutlined />} onClick={handleExport}>导出 CSV</Button>
           </Space>
         }
@@ -146,8 +171,8 @@ export default function AuditPage() {
             placeholder="按用户邮箱搜索"
             allowClear
             prefix={<SearchOutlined />}
-            value={filters.user_id}
-            onChange={(e) => setFilters(f => ({ ...f, user_id: e.target.value || undefined }))}
+            value={filters.user_email}
+            onChange={(e) => setFilters(f => ({ ...f, user_email: e.target.value || undefined }))}
           />
           <RangePicker
             showTime
@@ -165,7 +190,14 @@ export default function AuditPage() {
           columns={columns}
           rowKey="id"
           loading={loading}
-          pagination={{ pageSize: 30, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
+          onChange={handleTableChange}
+          pagination={{
+            current: page,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            showTotal: (t) => `共 ${t} 条`,
+          }}
           size="small"
           scroll={{ x: 1200 }}
         />
