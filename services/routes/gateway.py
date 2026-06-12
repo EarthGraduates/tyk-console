@@ -1,8 +1,7 @@
 """
-POST /rest/{func_name}        — legacy
-POST /api/ygt/mdrs/v1/lis-center/{direction}/{operation}  — per Tyk API
+POST /rest/{func_name}        — legacy RPC
+POST /api/ygt/mdrs/v1/lis-center/{direction}/{operation}  — table CRUD or RPC
 """
-import asyncio
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 import httpx
@@ -10,24 +9,27 @@ from config import POSTGREST_URL
 
 router = APIRouter()
 
-# direction_slug/operation → func_name — populated by init_url_map()
-_url_map: dict[str, str] = {}
+# {direction/operation: {func_name, target_table, target_op}}
+_url_map: dict[str, dict] = {}
 
 
 async def init_url_map():
-    """Build lookup: {direction/operation: func_name} from PG."""
     global _url_map
     import asyncpg
     pg = await asyncpg.connect("postgresql://ichse:ichse_dev@localhost:5433/ichse")
     rows = await pg.fetch(
-        "SELECT func_name, url FROM biz.interfaces WHERE is_valid = true"
+        "SELECT func_name, url, target_table, target_op "
+        "FROM biz.interfaces WHERE is_valid = true"
     )
     for r in rows:
         parts = r["url"].rstrip("/").split("/")
         if len(parts) >= 2:
-            direction_slug = parts[-2]
-            operation = parts[-1]
-            _url_map[f"{direction_slug}/{operation}"] = r["func_name"]
+            key = f"{parts[-2]}/{parts[-1]}"
+            _url_map[key] = {
+                "func_name": r["func_name"],
+                "target_table": r["target_table"],
+                "target_op": r["target_op"],
+            }
     await pg.close()
 
 
@@ -41,8 +43,61 @@ def _get_log_writer():
     return log_writer
 
 
-async def _handle(func_name: str, payload: dict, request: Request):
-    """Validate → forward to PostgREST (shared by all routes)."""
+def _payload_to_query(payload: dict) -> str:
+    """Convert {key: val, ...} → ?key=eq.val&key2=eq.val2"""
+    parts = [f"{k}=eq.{v}" for k, v in payload.items()
+             if v is not None and v != "" and not isinstance(v, (dict, list))]
+    return "&".join(parts)
+
+
+async def _forward_table(
+    table: str, op: str, payload: dict, client: httpx.AsyncClient
+) -> httpx.Response:
+    """Forward request to PostgREST table endpoint."""
+    base = f"{POSTGREST_URL}/{table}"
+    headers = {"Content-Type": "application/json"}
+
+    if op == "SELECT":
+        qs = _payload_to_query(payload)
+        url = f"{base}?{qs}" if qs else base
+        resp = await client.get(url, headers=headers, timeout=30)
+
+    elif op == "INSERT":
+        resp = await client.post(base, json=payload, headers=headers, timeout=30)
+
+    elif op == "UPDATE":
+        # Use all payload keys as filter AND body
+        qs = _payload_to_query(payload)
+        url = f"{base}?{qs}" if qs else base
+        resp = await client.patch(url, json=payload, headers=headers, timeout=30)
+
+    elif op == "UPSERT":
+        headers["Prefer"] = "resolution=merge-duplicates"
+        resp = await client.post(base, json=payload, headers=headers, timeout=30)
+
+    else:
+        raise HTTPException(status_code=500, detail=f"Unknown op: {op}")
+
+    return resp
+
+
+async def _forward_rpc(
+    func_name: str, payload: dict, client: httpx.AsyncClient
+) -> httpx.Response:
+    return await client.post(
+        f"{POSTGREST_URL}/rpc/{func_name}",
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        timeout=30,
+    )
+
+
+async def _handle(meta: dict, payload: dict):
+    """Validate → log → forward to PostgREST (table or RPC)."""
+    func_name = meta["func_name"]
+    target_table = meta.get("target_table")
+    target_op = meta.get("target_op")
+
     engine = _get_engine()
     result = await engine.validate(func_name, payload)
 
@@ -65,13 +120,12 @@ async def _handle(func_name: str, payload: dict, request: Request):
         )
 
     async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{POSTGREST_URL}/rpc/{func_name}",
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=30,
-        )
-    pg_data = resp.json()
+        if target_table and target_op:
+            resp = await _forward_table(target_table, target_op, payload, client)
+        else:
+            resp = await _forward_rpc(func_name, payload, client)
+
+    pg_data = resp.json() if resp.content else {}
 
     if isinstance(pg_data, dict):
         pg_data.setdefault("_validation", {
@@ -84,13 +138,13 @@ async def _handle(func_name: str, payload: dict, request: Request):
 
 @router.post("/rest/{func_name}")
 async def call_legacy(func_name: str, request: Request):
-    return await _handle(func_name, await request.json(), request)
+    return await _handle({"func_name": func_name}, await request.json())
 
 
 @router.post("/api/ygt/mdrs/v1/lis-center/{direction}/{operation}")
 async def call_external(direction: str, operation: str, request: Request):
     key = f"{direction}/{operation}"
-    func_name = _url_map.get(key)
-    if func_name is None:
+    meta = _url_map.get(key)
+    if meta is None:
         raise HTTPException(status_code=404, detail=f"Unknown interface: {key}")
-    return await _handle(func_name, await request.json(), request)
+    return await _handle(meta, await request.json())
