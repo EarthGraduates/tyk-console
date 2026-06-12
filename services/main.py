@@ -30,6 +30,10 @@ async def lifespan(app: FastAPI):
     validation_engine = ValidationEngine(rule_loader)
     log_writer = LogWriter(redis)
 
+    # Build URL → func_name lookup for external Tyk routes
+    from routes.gateway import init_url_map
+    await init_url_map()
+
     # Background task: batch flush logs from Redis → PG
     asyncio.create_task(start_batch_flusher(redis, pg_pool))
 
