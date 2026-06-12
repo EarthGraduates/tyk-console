@@ -5,3 +5,7 @@ dist/
 pgdata/
 .claude/
 .env
+test-results/
+__pycache__/
+*.pyc
+services/venv/

@@ -32,7 +32,7 @@ import { App as AntdApp, Menu } from 'antd';
 import {
   DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined,
   CloudServerOutlined, HistoryOutlined, LogoutOutlined,
-  UserOutlined, AuditOutlined, SafetyOutlined, BarChartOutlined,
+  UserOutlined, AuditOutlined, SafetyOutlined, SafetyCertificateOutlined, BarChartOutlined,
 } from '@ant-design/icons';
 import { BrowserRouter, Route, Routes, useNavigate, useLocation, Navigate } from 'react-router';
 import { useState, useMemo } from 'react';
@@ -51,6 +51,7 @@ import ApiRecords from './pages/api-records';
 import UsersPage from './pages/users';
 import AuditPage from './pages/audit';
 import SecurityPage from './pages/security';
+import ValidationRulesPage from './pages/validation-rules';
 import LoginPage from './pages/login';
 
 const SIDER_WIDTH = 200;
@@ -74,6 +75,7 @@ const ALL_MENU_ITEMS: MenuItem[] = [
   { key: '/users',       icon: <UserOutlined />,          label: '用户管理',     allowedRoles: ['system_admin', 'security_admin'] },
   { key: '/audit',       icon: <AuditOutlined />,         label: '审计日志',    allowedRoles: ['system_admin', 'audit_admin'] },
   { key: '/security',    icon: <SafetyOutlined />,        label: '安全策略',    allowedRoles: ['security_admin'] },
+  { key: '/validation-rules', icon: <SafetyCertificateOutlined />, label: '校验规则', allowedRoles: ['system_admin', 'security_admin'] },
   { key: '/settings',    icon: <SettingOutlined />,       label: '系统设置',    allowedRoles: ['system_admin', 'security_admin', 'audit_admin', 'business_user', 'viewer'] },
 ];
 
@@ -208,6 +210,7 @@ function App() {
                             <Route path="/users" element={<RequireRole roles={['system_admin', 'security_admin']}><UsersPage /></RequireRole>} />
                             <Route path="/audit" element={<RequireRole roles={['system_admin', 'audit_admin']}><AuditPage /></RequireRole>} />
                             <Route path="/security" element={<RequireRole roles={['security_admin']}><SecurityPage /></RequireRole>} />
+                            <Route path="/validation-rules" element={<RequireRole roles={['system_admin', 'security_admin']}><ValidationRulesPage /></RequireRole>} />
                             <Route path="/settings" element={<SettingsPage />} />
                           </Routes>
                         </AppLayout>

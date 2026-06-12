@@ -1,4 +1,16 @@
 services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: ichse-redis
+    ports:
+      - "6380:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: postgres:17-alpine
     container_name: ichse-postgres
