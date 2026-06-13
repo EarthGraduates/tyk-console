@@ -1,243 +1,217 @@
 /**
- * API 服务管理页面
+ * API 定义页面
  *
- * @description
- * Tyk API Definition 的完整 CRUD 界面，涵盖 v1 核心字段。
- * - 列表页：表格展示所有 API，含搜索/筛选/克隆/删除
- * - 创建弹窗：6 个 Tab（基本信息、路由、认证、CORS、速率限制、缓存）
- * - 详情页：完整 JSON 格式化展示
- *
- * ## v1 覆盖字段
- * 基本信息(3) + 路由配置(4) + 认证(4) + CORS(9) + 速率限制(3) + 缓存(2) = ~25 核心字段
- * 高级设置（端点配置/版本管理/中间件/日志）划入 v2
- *
- * @module apis
+ * PG api_definitions 为权威源，Tyk 状态为辅助。
+ * 遵循 conventions.md §十二: 操作按钮在工具栏，行选择操作。
  */
-
-import { useList, useCreate, useDelete, useOne } from '@refinedev/core';
-import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App, Drawer, Spin } from 'antd';
-import { PlusOutlined, CopyOutlined } from '@ant-design/icons';
-import { useState, useMemo } from 'react';
+import { useList, useCreate, useUpdate } from '@refinedev/core';
+import { Table, Form, Input, Switch, Button, Space, Modal, Popconfirm, Tag, Tabs, App } from 'antd';
+import { PlusOutlined, SyncOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { HideFromViewer } from '../../providers/permissions';
 
-/**
- * API 创建/克隆 Modal 组件
- *
- * @param open - Modal 是否可见
- * @param onClose - 关闭回调
- * @param cloneData - 克隆来源的 API 数据，有则预填所有字段
- */
-function ApiCreateModal({ open, onClose, cloneData }: {
-  open: boolean;
-  onClose: () => void;
-  cloneData?: any;
-}) {
+// ── helpers ──
+async function callAdmin(path: string, method = 'POST', body?: any) {
+  const resp = await fetch(`${window.location.origin}/admin${path}`, {
+    method, headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!resp.ok) throw new Error(await resp.text());
+  return resp.json();
+}
+
+// ── Create Modal ──
+function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [form] = Form.useForm();
-  const { mutate: create } = useCreate({ dataProviderName: 'tyk' });
+  const { mutate: create } = useCreate({ dataProviderName: 'ichseDb' });
   const { message } = App.useApp();
   const [creating, setCreating] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
 
-  /**
-   * 构建 Tyk API Definition 的完整 payload
-   * - 路由配置：listen_path + target_url（必填）
-   * - 认证配置：keyless / Token / JWT 三种模式
-   * - CORS：逗号分隔的字符串转数组（Tyk 需数组格式）
-   */
   const onFinish = (values: any) => {
     setCreating(true);
     const payload = {
-      name: values.name,
-      api_id: values.api_id,
-      active: values.active ?? true,
-      use_keyless: values.use_keyless ?? false,
-      proxy: {
-        listen_path: values.listen_path,
-        target_url: values.target_url,
-        strip_listen_path: values.strip_listen_path ?? true,
-      },
-      org_id: 'default',
-      auth: values.use_keyless ? {} : { auth_header_name: values.auth_header_name || 'authorization' },
-      CORS: {
-        enable: values.cors_enable ?? false,
-        allowed_origins: values.allowed_origins ? values.allowed_origins.split(',').map((s: string) => s.trim()) : ['*'],
-        allowed_methods: values.allowed_methods ? values.allowed_methods.split(',').map((s: string) => s.trim()) : ['GET', 'POST'],
-        allowed_headers: values.allowed_headers ? values.allowed_headers.split(',').map((s: string) => s.trim()) : ['*'],
-      },
-      enable_jwt: values.enable_jwt ?? false,
-      disable_rate_limit: values.disable_rate_limit ?? false,
-      cache_options: {
-        enable_cache: values.enable_cache ?? false,
-        cache_timeout: values.cache_timeout || 60,
+      name: values.name, api_id: values.api_id,
+      listen_path: values.listen_path, target_url: values.target_url,
+      auth_mode: values.use_keyless ? 'keyless' : 'standard',
+      status: 'active', sync_status: 'pending',
+      definition: {
+        name: values.name, api_id: values.api_id,
+        active: true, use_keyless: values.use_keyless ?? false,
+        proxy: { listen_path: values.listen_path, target_url: values.target_url,
+                 strip_listen_path: values.strip_listen_path ?? true },
+        version_data: { not_versioned: true, versions: { Default: { name: 'Default', use_extended_paths: true } } },
       },
     };
-    create({ resource: 'apis', values: payload }, {
-      onSuccess: () => { message.success('API 创建成功'); setCreating(false); onClose(); },
+    create({ resource: 'api-records', values: payload }, {
+      onSuccess: () => { message.success('API 已保存'); setCreating(false); onClose(); },
       onError: (e: any) => { message.error(`创建失败: ${e.message}`); setCreating(false); },
     });
   };
 
   return (
-    <Modal title={cloneData ? '克隆 API' : '创建 API'} open={open} onCancel={onClose} width={800} footer={null} destroyOnHidden>
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-        initialValues={{
-          name: cloneData?.name,
-          api_id: cloneData?.api_id,
-          active: cloneData?.active ?? true,
-          use_keyless: cloneData?.use_keyless ?? false,
-          listen_path: cloneData?.proxy?.listen_path,
-          target_url: cloneData?.proxy?.target_url,
-          strip_listen_path: cloneData?.proxy?.strip_listen_path ?? true,
-          auth_header_name: cloneData?.auth?.auth_header_name || 'authorization',
-          enable_jwt: cloneData?.enable_jwt ?? false,
-          cors_enable: cloneData?.CORS?.enable ?? false,
-          allowed_origins: (cloneData?.CORS?.allowed_origins || ['*']).join(', '),
-          allowed_methods: (cloneData?.CORS?.allowed_methods || ['GET', 'POST']).join(', '),
-          allowed_headers: (cloneData?.CORS?.allowed_headers || ['*']).join(', '),
-          disable_rate_limit: cloneData?.disable_rate_limit ?? false,
-          enable_cache: cloneData?.cache_options?.enable_cache ?? false,
-          cache_timeout: cloneData?.cache_options?.cache_timeout || 60,
-        }}
-      >
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={[
-            { key: 'basic',
-              label: '基本信息',
-              children: (
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入 API 名称' }]}><Input placeholder="例如：用户服务 API" /></Form.Item>
-                  <Form.Item
-                    name="api_id"
-                    label="API ID"
-                    rules={[
-                      { required: true, message: '请输入 API ID' },
-                      { pattern: /^[a-z0-9_-]+$/, message: '仅支持小写字母、数字、下划线和连字符' },
-                    ]}
-                  ><Input placeholder="例如：user-service" />
-                  </Form.Item>
-                  <Form.Item name="active" label="启用" valuePropName="checked"><Switch /></Form.Item>
-                </Space>
-              ) },
-            { key: 'route',
-              label: '路由配置',
-              children: (
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <Form.Item
-                    name="listen_path"
-                    label="监听路径"
-                    rules={[
-                      { required: true, message: '请输入监听路径' },
-                      { pattern: /^\/[\w\-/]*\/$/, message: '必须以 / 开头和结尾，如 /my-api/' },
-                    ]}
-                  ><Input placeholder="/my-api/" />
-                  </Form.Item>
-                  <Form.Item
-                    name="target_url"
-                    label="上游 URL"
-                    rules={[
-                      { required: true, message: '请输入上游 URL' },
-                      { type: 'url', message: '请输入有效的 URL（http:// 或 https://）' },
-                    ]}
-                  ><Input placeholder="http://upstream" />
-                  </Form.Item>
-                  <Form.Item name="strip_listen_path" label="剥离路径" valuePropName="checked"><Switch /></Form.Item>
-                </Space>
-              ) },
-            { key: 'auth',
-              label: '认证',
-              children: (
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <Form.Item name="use_keyless" label="免认证 (Keyless)" valuePropName="checked"><Switch /></Form.Item>
-                  <Form.Item name="auth_header_name" label="认证头"><Input placeholder="authorization" /></Form.Item>
-                  <Form.Item name="enable_jwt" label="启用 JWT" valuePropName="checked"><Switch /></Form.Item>
-                </Space>
-              ) },
-            { key: 'cors',
-              label: 'CORS',
-              children: (
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <Form.Item name="cors_enable" label="启用 CORS" valuePropName="checked"><Switch /></Form.Item>
-                  <Form.Item name="allowed_origins" label="允许域名"><Input placeholder="*" /></Form.Item>
-                  <Form.Item name="allowed_methods" label="允许方法"><Input placeholder="GET, POST" /></Form.Item>
-                  <Form.Item name="allowed_headers" label="允许头"><Input placeholder="*" /></Form.Item>
-                </Space>
-              ) },
-            { key: 'rate',
-              label: '速率限制',
-              children: (
-                <Form.Item name="disable_rate_limit" label="禁用限流" valuePropName="checked"><Switch /></Form.Item>
-              ) },
-            { key: 'cache',
-              label: '缓存',
-              children: (
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <Form.Item name="enable_cache" label="启用缓存" valuePropName="checked"><Switch /></Form.Item>
-                  <Form.Item name="cache_timeout" label="超时(s)" rules={[{ type: 'number', min: 1, max: 86400, message: '1~86400 秒' }]}><Input type="number" placeholder="60" /></Form.Item>
-                </Space>
-              ) },
-          ]}
-        />
+    <Modal title="创建 API" open={open} onCancel={onClose} width={700} footer={null} destroyOnHidden>
+      <Form form={form} layout="vertical" onFinish={onFinish}
+        initialValues={{ strip_listen_path: true }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
+          <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="例如：检验样本类型下载" /></Form.Item>
+          <Form.Item name="api_id" label="API ID" rules={[{ required: true, pattern: /^[a-z0-9_-]+$/, message: '仅支持小写字母、数字、下划线和连字符' }]}><Input placeholder="例如：ichse-lab-nx-md-i001" /></Form.Item>
+          <Form.Item name="listen_path" label="监听路径" rules={[{ required: true, pattern: /^\/[\w\-/]*\/$/, message: '必须以 / 开头和结尾' }]}><Input placeholder="/api/..." /></Form.Item>
+          <Form.Item name="target_url" label="上游 URL" rules={[{ required: true }]}><Input placeholder="http://services:8000" /></Form.Item>
+          <Form.Item name="strip_listen_path" label="剥离路径" valuePropName="checked"><Switch /></Form.Item>
+          <Form.Item name="use_keyless" label="免认证 (Keyless)" valuePropName="checked"><Switch /></Form.Item>
+        </Space>
         <div style={{ textAlign: 'right', marginTop: 16 }}>
-          <Space>
-            <Button onClick={onClose}>取消</Button>
-            <Button type="primary" htmlType="submit" loading={creating}>{cloneData ? '克隆创建' : '创建 API'}</Button>
-          </Space>
+          <Space><Button onClick={onClose}>取消</Button><Button type="primary" htmlType="submit" loading={creating}>创建 API</Button></Space>
         </div>
       </Form>
     </Modal>
   );
 }
 
-/**
- * API 列表页
- *
- * @description
- * 展示所有 Tyk API Definition，支持搜索/筛选/克隆/删除。
- * 创建和克隆复用 ApiCreateModal 弹窗（不导航到独立页面）。
- */
-export function ApiList() {
+// ── Edit Modal ──
+function EditModal({ open, onClose, record }: { open: boolean; onClose: () => void; record: any }) {
+  const [form] = Form.useForm();
+  const { mutate: update } = useUpdate({ dataProviderName: 'ichseDb' });
+  const { message } = App.useApp();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open || !record) return;
+    form.setFieldsValue({
+      name: record.name || '', api_id: record.api_id || '',
+      listen_path: record.listen_path || '', target_url: record.target_url || '',
+      use_keyless: record.auth_mode === 'keyless',
+    });
+  }, [open, record, form]);
+
+  const onFinish = (values: any) => {
+    setSaving(true);
+    update({ resource: 'api-records', id: record.api_id, values: {
+      name: values.name, listen_path: values.listen_path, target_url: values.target_url,
+      auth_mode: values.use_keyless ? 'keyless' : 'standard', sync_status: 'pending',
+    }}, {
+      onSuccess: () => { message.success('已更新'); setSaving(false); onClose(); },
+      onError: (e: any) => { message.error(`更新失败: ${e.message}`); setSaving(false); },
+    });
+  };
+
+  return (
+    <Modal title={`编辑 — ${record?.name}`} open={open} onCancel={onClose} width={500} footer={null} destroyOnHidden>
+      <Form form={form} layout="vertical" onFinish={onFinish}>
+        <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
+        <Form.Item name="listen_path" label="监听路径" rules={[{ required: true }]}><Input /></Form.Item>
+        <Form.Item name="target_url" label="上游 URL" rules={[{ required: true }]}><Input /></Form.Item>
+        <Form.Item name="use_keyless" label="免认证" valuePropName="checked"><Switch /></Form.Item>
+        <div style={{ textAlign: 'right', marginTop: 16 }}>
+          <Space><Button onClick={onClose}>取消</Button><Button type="primary" htmlType="submit" loading={saving}>保存</Button></Space>
+        </div>
+      </Form>
+    </Modal>
+  );
+}
+
+// ── Page ──
+export default function ApiList() {
   const [createOpen, setCreateOpen] = useState(false);
-  const [cloneSource, setCloneSource] = useState<any>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRecord, setEditRecord] = useState<any>(null);
+  const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([]);
   const [searchText, setSearchText] = useState('');
+  const [tykStatuses, setTykStatuses] = useState<Record<string, string>>({});
+  const { message } = App.useApp();
 
-  const { result, isLoading } = useList({ resource: 'apis', dataProviderName: 'tyk' });
-  const { mutate: deleteApi } = useDelete({ dataProviderName: 'tyk' });
-  const { query: detailQuery } = useOne({
-    resource: 'apis',
-    id: detailId || '',
-    dataProviderName: 'tyk',
-    queryOptions: { enabled: !!detailId },
-  });
+  const { result, isLoading, query } = useList({ resource: 'api-records', dataProviderName: 'ichseDb' });
+  const refetch = () => query.refetch();
 
-  const detailData = detailQuery?.data?.data;
-  const detailLoading = detailQuery?.isLoading ?? false;
+  // Fetch Tyk status for all APIs
+  const fetchTykStatus = useCallback(async () => {
+    try {
+      const resp = await fetch(`http://localhost:8080/tyk/apis/`, {
+        headers: { 'x-tyk-authorization': 'foo' },
+      });
+      const tykApis: any[] = await resp.json();
+      const map: Record<string, string> = {};
+      tykApis.forEach((a: any) => { map[a.api_id] = 'running'; });
+      setTykStatuses(map);
+    } catch { /* Tyk unreachable — ignore */ }
+  }, []);
+
+  useEffect(() => { fetchTykStatus(); }, [fetchTykStatus]);
+
+  const selectedRecord = useMemo(() => {
+    const data = result?.data || [];
+    return data.find((r: any) => r.api_id === selectedKeys[0]);
+  }, [result?.data, selectedKeys]);
+
+  // ── Actions ──
+  const syncToTyk = async (apiId: string) => {
+    try {
+      await callAdmin(`/sync-to-tyk/${apiId}`);
+      message.success('同步成功');
+      refetch(); fetchTykStatus();
+    } catch (e: any) { message.error(`同步失败: ${e.message}`); }
+  };
+
+  const deactivate = async (apiId: string) => {
+    try {
+      await callAdmin(`/sync-to-tyk/${apiId}`, 'DELETE');
+      await fetch(`http://localhost:3001/api-records?api_id=eq.${apiId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ status: 'inactive', sync_status: 'synced' }),
+      });
+      message.success('已停用');
+      refetch(); fetchTykStatus();
+    } catch (e: any) { message.error(`停用失败: ${e.message}`); }
+  };
+
+  const reactivate = async (apiId: string) => {
+    try {
+      const resp = await fetch(`http://localhost:3001/api-records?api_id=eq.${apiId}`, { headers: { Accept: 'application/json' } });
+      const rows = await resp.json();
+      if (!rows.length) throw new Error('API not found');
+      const def = rows[0].definition;
+      await callAdmin(`/sync-to-tyk/${apiId}`);
+      await fetch(`http://localhost:3001/api-records?api_id=eq.${apiId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ status: 'active', sync_status: 'synced' }),
+      });
+      message.success('已重新启用');
+      refetch(); fetchTykStatus();
+    } catch (e: any) { message.error(`启用失败: ${e.message}`); }
+  };
+
+  const deleteRecord = async (apiId: string) => {
+    try {
+      await callAdmin(`/sync-to-tyk/${apiId}`, 'DELETE');
+      await fetch(`http://localhost:3001/api-records?api_id=eq.${apiId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+        body: JSON.stringify({ status: 'archived', sync_status: 'synced' }),
+      });
+      message.success('已删除');
+      refetch(); fetchTykStatus();
+    } catch (e: any) { message.error(`删除失败: ${e.message}`); }
+  };
 
   const columns = [
-    { title: '名称', dataIndex: 'name', key: 'name' },
+    { title: '名称', dataIndex: 'name', key: 'name', ellipsis: true },
     { title: 'API ID', dataIndex: 'api_id', key: 'api_id', ellipsis: true },
-    { title: '监听路径', dataIndex: ['proxy', 'listen_path'], key: 'path' },
-    { title: '上游', dataIndex: ['proxy', 'target_url'], key: 'target', ellipsis: true },
-    { title: '认证', key: 'auth', render: (_: any, r: any) => (r.use_keyless ? <Tag>Keyless</Tag> : <Tag color="blue">Token</Tag>) },
-    { title: '状态', dataIndex: 'active', key: 'active', render: (v: boolean) => (v ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>) },
-    { title: '操作',
-      key: 'actions',
-      render: (_: any, r: any) => (
-        <Space>
-          <Button size="small" onClick={() => setDetailId(r.api_id)}>详情</Button>
-          <HideFromViewer>
-            <Button size="small" icon={<CopyOutlined />} onClick={() => { setCloneSource(r); setCreateOpen(true); }}>克隆</Button>
-            <Popconfirm title="确定删除？" placement="left" onConfirm={() => deleteApi({ resource: 'apis', id: r.api_id })}>
-              <Button size="small" danger>删除</Button>
-            </Popconfirm>
-          </HideFromViewer>
-        </Space>
-      ) },
+    { title: '监听路径', dataIndex: 'listen_path', key: 'path', ellipsis: true },
+    { title: '上游', dataIndex: 'target_url', key: 'target', ellipsis: true },
+    {
+      title: '状态', dataIndex: 'status', key: 'status', width: 80,
+      render: (v: string) => v === 'active' ? <Tag color="green">启用</Tag> : v === 'inactive' ? <Tag color="default">停用</Tag> : <Tag color="orange">{v}</Tag>,
+    },
+    {
+      title: 'Tyk', key: 'tyk', width: 80,
+      render: (_: any, r: any) => tykStatuses[r.api_id] ? <Tag color="cyan">运行中</Tag> : <Tag color="default">未同步</Tag>,
+    },
+    {
+      title: '同步', dataIndex: 'sync_status', key: 'sync', width: 80,
+      render: (v: string) => v === 'synced' ? <Tag color="green">已同步</Tag> : v === 'pending' ? <Tag color="gold">待同步</Tag> : v === 'failed' ? <Tag color="red">失败</Tag> : <Tag>{v}</Tag>,
+    },
   ];
 
   const dataSource = useMemo(() => {
@@ -245,25 +219,31 @@ export function ApiList() {
     if (!searchText.trim()) return raw;
     const s = searchText.toLowerCase();
     return raw.filter((r: any) =>
-      (r.name || '').toLowerCase().includes(s)
-      || (r.api_id || '').toLowerCase().includes(s)
-      || (r.proxy?.listen_path || '').toLowerCase().includes(s)
-      || (r.proxy?.target_url || '').toLowerCase().includes(s));
+      (r.name || '').toLowerCase().includes(s) || (r.api_id || '').toLowerCase().includes(s));
   }, [result?.data, searchText]);
 
   return (
     <div style={{ padding: 24 }}>
+      {/* Toolbar */}
       <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'space-between' }}>
         <HideFromViewer>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setCloneSource(null); setCreateOpen(true); }}>创建 API</Button>
+          <Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新建</Button>
+            <Button disabled={!selectedRecord} onClick={() => { setEditRecord(selectedRecord); setEditOpen(true); }}>编辑</Button>
+            <Button icon={<SyncOutlined />} disabled={!selectedRecord} onClick={() => syncToTyk(selectedRecord?.api_id)}>同步到 Tyk</Button>
+            <Button icon={<PlayCircleOutlined />} disabled={!selectedRecord || selectedRecord?.status === 'active'}
+              onClick={() => reactivate(selectedRecord?.api_id)}>启用</Button>
+            <Button icon={<StopOutlined />} disabled={!selectedRecord || selectedRecord?.status !== 'active'}
+              onClick={() => deactivate(selectedRecord?.api_id)}>停用</Button>
+            <Popconfirm title={`确定删除「${selectedRecord?.name}」？不可恢复。`}
+              onConfirm={() => deleteRecord(selectedRecord?.api_id)} disabled={!selectedRecord}>
+              <Button danger disabled={!selectedRecord}>删除</Button>
+            </Popconfirm>
+          </Space>
         </HideFromViewer>
-        <Input.Search
-          placeholder="搜索名称、API ID、路径、上游"
-          allowClear
-          onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 360 }}
-        />
+        <Input.Search placeholder="搜索名称、API ID" allowClear onChange={(e) => setSearchText(e.target.value)} style={{ width: 300 }} />
       </Space>
+
       <Table
         dataSource={dataSource}
         columns={columns}
@@ -271,39 +251,16 @@ export function ApiList() {
         loading={isLoading}
         size="small"
         scroll={{ x: 'max-content' }}
-        pagination={{
-          defaultPageSize: 10,
-          showSizeChanger: true,
-          pageSizeOptions: ['10', '20', '50'],
-          showTotal: (total) => `共 ${total} 条`,
+        rowSelection={{
+          type: 'radio',
+          selectedRowKeys: selectedKeys,
+          onChange: (keys) => setSelectedKeys(keys),
         }}
+        pagination={{ defaultPageSize: 15, showSizeChanger: true, showTotal: (t) => `共 ${t} 条` }}
       />
-      <ApiCreateModal
-        open={createOpen}
-        onClose={() => { setCreateOpen(false); setCloneSource(null); }}
-        cloneData={cloneSource}
-      />
-      <Drawer
-        title={`API 详情 — ${detailId}`}
-        open={!!detailId}
-        onClose={() => setDetailId(null)}
-        size="large"
-      >
-        {detailLoading ? <Spin /> : (
-          <pre style={{
-            background: '#1e1e1e',
-            color: '#d4d4d4',
-            padding: 16,
-            borderRadius: 8,
-            overflow: 'auto',
-            maxHeight: '70vh',
-            fontSize: 13,
-          }}
-          >
-            {JSON.stringify(detailData, null, 2)}
-          </pre>
-        )}
-      </Drawer>
+
+      <CreateModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <EditModal open={editOpen} onClose={() => setEditOpen(false)} record={editRecord} />
     </div>
   );
 }

@@ -45,9 +45,9 @@ import Dashboard from './pages/dashboard';
 import BusinessDashboard from './pages/business';
 import SettingsPage from './pages/settings';
 import GatewayPage from './pages/gateway';
-import { ApiList } from './pages/apis';
+import ApiList from './pages/apis';
+import InterfacesPage from './pages/interfaces';
 import KeyList from './pages/keys';
-import ApiRecords from './pages/api-records';
 import UsersPage from './pages/users';
 import AuditPage from './pages/audit';
 import SecurityPage from './pages/security';
@@ -69,9 +69,9 @@ const ALL_MENU_ITEMS: MenuItem[] = [
   { key: '/',            icon: <DashboardOutlined />,    label: '系统仪表板',  allowedRoles: ['system_admin', 'security_admin'] },
   { key: '/business',    icon: <BarChartOutlined />,      label: '业务仪表板',  allowedRoles: ['audit_admin', 'business_user', 'viewer'] },
   { key: '/gateway',     icon: <CloudServerOutlined />,   label: '网关管理',    allowedRoles: ['system_admin'] },
-  { key: '/apis',        icon: <ApiOutlined />,           label: 'API 服务',    allowedRoles: ['system_admin', 'business_user'] },
+  { key: '/apis',        icon: <ApiOutlined />,           label: 'API 定义',    allowedRoles: ['system_admin', 'business_user'] },
+  { key: '/interfaces',  icon: <HistoryOutlined />,       label: '接口管理',     allowedRoles: ['system_admin', 'security_admin', 'audit_admin', 'business_user', 'viewer'] },
   { key: '/keys',        icon: <KeyOutlined />,           label: '密钥管理',     allowedRoles: ['system_admin', 'business_user'] },
-  { key: '/api-records', icon: <HistoryOutlined />,       label: '历史记录',    allowedRoles: ['system_admin', 'security_admin', 'audit_admin', 'business_user', 'viewer'] },
   { key: '/users',       icon: <UserOutlined />,          label: '用户管理',     allowedRoles: ['system_admin', 'security_admin'] },
   { key: '/audit',       icon: <AuditOutlined />,         label: '审计日志',    allowedRoles: ['system_admin', 'audit_admin'] },
   { key: '/security',    icon: <SafetyOutlined />,        label: '安全策略',    allowedRoles: ['security_admin'] },
@@ -205,8 +205,8 @@ function App() {
                             <Route path="/business" element={<RequireRole roles={['audit_admin', 'business_user', 'viewer']}><BusinessDashboard /></RequireRole>} />
                             <Route path="/gateway" element={<RequireRole roles={['system_admin']}><GatewayPage /></RequireRole>} />
                             <Route path="/apis" element={<RequireRole roles={['system_admin', 'business_user']}><ApiList /></RequireRole>} />
+                            <Route path="/interfaces" element={<RequireRole roles={['system_admin', 'security_admin', 'audit_admin', 'business_user', 'viewer']}><InterfacesPage /></RequireRole>} />
                             <Route path="/keys" element={<RequireRole roles={['system_admin', 'business_user']}><KeyList /></RequireRole>} />
-                            <Route path="/api-records" element={<ApiRecords />} />
                             <Route path="/users" element={<RequireRole roles={['system_admin', 'security_admin']}><UsersPage /></RequireRole>} />
                             <Route path="/audit" element={<RequireRole roles={['system_admin', 'audit_admin']}><AuditPage /></RequireRole>} />
                             <Route path="/security" element={<RequireRole roles={['security_admin']}><SecurityPage /></RequireRole>} />
