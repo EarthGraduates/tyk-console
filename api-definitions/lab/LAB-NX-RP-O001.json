@@ -1,0 +1,25 @@
+{
+  "api_id": "ichse-lab-nx-rp-o001",
+  "name": "ICHSE 上传检验报告单 (lab_nx_rp_e01_submit_report)",
+  "slug": "ichse-lab-nx-rp-o001",
+  "listen_path": "/api/ygt/mdrs/v1/lis-center/centerljzx/submitReport",
+  "target_url": "http://host.docker.internal:8000",
+  "strip_listen_path": false,
+  "use_keyless": true,
+  "active": true,
+  "proxy": {
+    "target_url": "http://host.docker.internal:8000",
+    "listen_path": "/api/ygt/mdrs/v1/lis-center/centerljzx/submitReport",
+    "strip_listen_path": false
+  },
+  "version_data": {
+    "not_versioned": true,
+    "versions": {
+      "Default": {
+        "name": "Default",
+        "use_extended_paths": true
+      }
+    }
+  },
+  "custom_middleware": {}
+}

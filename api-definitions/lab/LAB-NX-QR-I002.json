@@ -1,0 +1,25 @@
+{
+  "api_id": "ichse-lab-nx-qr-i002",
+  "name": "ICHSE 检验申请提交 (lab_nx_qr_p02_submit_application)",
+  "slug": "ichse-lab-nx-qr-i002",
+  "listen_path": "/api/ygt/mdrs/v1/lis-center/samplesjf/submitApplication",
+  "target_url": "http://host.docker.internal:8000",
+  "strip_listen_path": false,
+  "use_keyless": true,
+  "active": true,
+  "proxy": {
+    "target_url": "http://host.docker.internal:8000",
+    "listen_path": "/api/ygt/mdrs/v1/lis-center/samplesjf/submitApplication",
+    "strip_listen_path": false
+  },
+  "version_data": {
+    "not_versioned": true,
+    "versions": {
+      "Default": {
+        "name": "Default",
+        "use_extended_paths": true
+      }
+    }
+  },
+  "custom_middleware": {}
+}

@@ -1,0 +1,25 @@
+{
+  "api_id": "ichse-lab-nx-eq-o001",
+  "name": "ICHSE 检验设备上传（临检中心） (lab_nx_eq_i02_upload_device_info)",
+  "slug": "ichse-lab-nx-eq-o001",
+  "listen_path": "/api/ygt/mdrs/v1/lis-center/centerljzx/uploadDeviceInfo",
+  "target_url": "http://host.docker.internal:8000",
+  "strip_listen_path": false,
+  "use_keyless": true,
+  "active": true,
+  "proxy": {
+    "target_url": "http://host.docker.internal:8000",
+    "listen_path": "/api/ygt/mdrs/v1/lis-center/centerljzx/uploadDeviceInfo",
+    "strip_listen_path": false
+  },
+  "version_data": {
+    "not_versioned": true,
+    "versions": {
+      "Default": {
+        "name": "Default",
+        "use_extended_paths": true
+      }
+    }
+  },
+  "custom_middleware": {}
+}

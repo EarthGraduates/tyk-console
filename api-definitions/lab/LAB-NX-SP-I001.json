@@ -1,0 +1,25 @@
+{
+  "api_id": "ichse-lab-nx-sp-i001",
+  "name": "ICHSE 检验标本委托送检登记 (lab_nx_sp_b02_external_specimen)",
+  "slug": "ichse-lab-nx-sp-i001",
+  "listen_path": "/api/ygt/mdrs/v1/lis-center/samplesjf/externalSpecimen",
+  "target_url": "http://host.docker.internal:8000",
+  "strip_listen_path": false,
+  "use_keyless": true,
+  "active": true,
+  "proxy": {
+    "target_url": "http://host.docker.internal:8000",
+    "listen_path": "/api/ygt/mdrs/v1/lis-center/samplesjf/externalSpecimen",
+    "strip_listen_path": false
+  },
+  "version_data": {
+    "not_versioned": true,
+    "versions": {
+      "Default": {
+        "name": "Default",
+        "use_extended_paths": true
+      }
+    }
+  },
+  "custom_middleware": {}
+}

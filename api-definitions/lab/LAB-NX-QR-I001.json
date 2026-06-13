@@ -1,0 +1,25 @@
+{
+  "api_id": "ichse-lab-nx-qr-i001",
+  "name": "ICHSE 检验申请数据查询 (lab_nx_qr_p01_get_application_list)",
+  "slug": "ichse-lab-nx-qr-i001",
+  "listen_path": "/api/ygt/mdrs/v1/lis-center/samplesjf/getApplicationList",
+  "target_url": "http://host.docker.internal:8000",
+  "strip_listen_path": false,
+  "use_keyless": true,
+  "active": true,
+  "proxy": {
+    "target_url": "http://host.docker.internal:8000",
+    "listen_path": "/api/ygt/mdrs/v1/lis-center/samplesjf/getApplicationList",
+    "strip_listen_path": false
+  },
+  "version_data": {
+    "not_versioned": true,
+    "versions": {
+      "Default": {
+        "name": "Default",
+        "use_extended_paths": true
+      }
+    }
+  },
+  "custom_middleware": {}
+}

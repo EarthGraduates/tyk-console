@@ -1,0 +1,25 @@
+{
+  "api_id": "ichse-lab-nx-md-o003",
+  "name": "ICHSE 检验报告项目上传 (lab_nx_md_a03_upload_test_item)",
+  "slug": "ichse-lab-nx-md-o003",
+  "listen_path": "/api/ygt/mdrs/v1/lis-center/centerljzx/uploadTestItem",
+  "target_url": "http://host.docker.internal:8000",
+  "strip_listen_path": false,
+  "use_keyless": true,
+  "active": true,
+  "proxy": {
+    "target_url": "http://host.docker.internal:8000",
+    "listen_path": "/api/ygt/mdrs/v1/lis-center/centerljzx/uploadTestItem",
+    "strip_listen_path": false
+  },
+  "version_data": {
+    "not_versioned": true,
+    "versions": {
+      "Default": {
+        "name": "Default",
+        "use_extended_paths": true
+      }
+    }
+  },
+  "custom_middleware": {}
+}
