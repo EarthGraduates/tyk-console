@@ -5,6 +5,8 @@ POST /api/ygt/mdrs/v1/lis-center/{direction}/{operation}  — table CRUD or RPC
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 import httpx
+import json
+import asyncpg
 from config import POSTGREST_URL
 
 router = APIRouter()
@@ -12,10 +14,11 @@ router = APIRouter()
 # {direction/operation: {func_name, target_table, target_op}}
 _url_map: dict[str, dict] = {}
 
+PG_POOL: asyncpg.Pool = None  # Set after lifespan creates pool
+
 
 async def init_url_map():
-    global _url_map
-    import asyncpg
+    global _url_map, PG_POOL
     pg = await asyncpg.connect("postgresql://ichse:ichse_dev@localhost:5433/ichse")
     rows = await pg.fetch(
         "SELECT func_name, url, target_table, target_op "
@@ -82,14 +85,18 @@ async def _forward_table(
 
 
 async def _forward_rpc(
-    func_name: str, payload: dict, client: httpx.AsyncClient
-) -> httpx.Response:
-    return await client.post(
-        f"{POSTGREST_URL}/rpc/{func_name}",
-        json=payload,
-        headers={"Content-Type": "application/json"},
-        timeout=30,
-    )
+    func_name: str, payload: dict
+) -> dict:
+    """Call PG function directly via asyncpg, bypass PostgREST."""
+    global PG_POOL
+    if PG_POOL is None:
+        raise HTTPException(status_code=500, detail="DB pool not initialized")
+    async with PG_POOL.acquire() as conn:
+        result = await conn.fetchval(
+            f"SELECT ichse.{func_name}($1::json)",
+            json.dumps(payload),
+        )
+    return json.loads(result) if isinstance(result, str) else result
 
 
 async def _handle(meta: dict, payload: dict):
@@ -119,13 +126,14 @@ async def _handle(meta: dict, payload: dict):
             },
         )
 
-    async with httpx.AsyncClient() as client:
-        if target_table and target_op:
+    if target_table and target_op:
+        async with httpx.AsyncClient() as client:
             resp = await _forward_table(target_table, target_op, payload, client)
-        else:
-            resp = await _forward_rpc(func_name, payload, client)
-
-    pg_data = resp.json() if resp.content else {}
+        pg_data = resp.json() if resp.content else {}
+        status_code = resp.status_code
+    else:
+        pg_data = await _forward_rpc(func_name, payload)
+        status_code = 200
 
     if isinstance(pg_data, dict):
         pg_data.setdefault("_validation", {
@@ -133,7 +141,7 @@ async def _handle(meta: dict, payload: dict):
             "duration_ms": result.duration_ms,
         })
 
-    return JSONResponse(content=pg_data, status_code=resp.status_code)
+    return JSONResponse(content=pg_data, status_code=status_code)
 
 
 @router.post("/rest/{func_name}")

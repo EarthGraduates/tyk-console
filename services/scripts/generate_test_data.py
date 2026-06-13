@@ -27,148 +27,191 @@ def pick(a): return random.choice(a)
 
 _md_counters = defaultdict(int)
 
+# camelCase key mapping for MD upload dataInfoList items
+_MD_KEY_MAP = {
+    "sample_type":  ("sampleType", "sampleDescribe"),
+    "item_code":    ("itemCode", "itemName"),
+    "test_id":      ("testId", "chineseName"),
+    "bio_id":       ("bioId", "chineseName"),
+    "anti_id":      ("antiId", "chineseName"),
+}
+
 def md_upload(item_code_field, item_name_field):
     """MD dictionary upload: one row per call with unique item_code"""
     org = pick(ORG_CODES)
     _md_counters[item_code_field] += 1
     seq = _md_counters[item_code_field]
     it = pick(ITEMS)
+    cc_key, cc_name = _MD_KEY_MAP.get(item_code_field, ("sampleType", "sampleDescribe"))
     return {
-        "lab_org": org, "center_org": org,
-        item_code_field: f"{it[0]}-{seq:03d}",
-        item_name_field: f"{it[1]}-{seq:03d}",
-        "srm1": rand_str("py", 3), "srm2": rand_str("wb", 3),
-        "dataInfoList": [{"sampleType": it[0], "sampleDescribe": it[1]}],
+        "labOrg": org,
+        "dataInfoList": [{
+            cc_key: f"{it[0]}-{seq:03d}",
+            cc_name: f"{it[1]}-{seq:03d}",
+            "srm1": rand_str("py", 3), "srm2": rand_str("wb", 3),
+        }],
     }
 
 def md_download():
     """MD dictionary download: center_org"""
-    return {"center_org": pick(ORG_CODES)}
+    return {"centerOrg": pick(ORG_CODES)}
 
 def specimen_upload():
     """Specimen external registration"""
     items = []
     for _ in range(random.randint(1, 3)):
         it = pick(ITEMS)
-        items.append({"sampleType": it[0], "sampleDescribe": it[1]})
+        items.append({
+            "doctAdviseNo": rand_str("BC", 8), "sampleNo": f"SN{rand_str('', 6)}",
+            "sampleType": it[0], "sampleDescribe": it[1],
+            "patientId": f"PT{rnd()}", "patientName": pick(PATIENTS),
+            "sex": random.choice([1, 2, 0]), "birthday": dt("%Y-%m-%d"),
+            "section": pick(DEPT), "sectionName": pick(DEPT),
+            "diagnostic": f"初步诊断_{rnd()}",
+            "requester": pick(DOCTORS), "requestName": pick(DOCTORS), "requestTime": dt("%Y-%m-%d %H:%M:%S"),
+            "requestMode": random.choice([1, 2]),
+            "executor": pick(DOCTORS), "executorName": pick(DOCTORS), "executeTime": dt("%Y-%m-%d %H:%M:%S"),
+        })
     return {
-        "sending_org": pick(ORG_CODES), "center_org": pick(LABS),
-        "barcode": rand_str("BC", 8), "sample_no": f"SN{rand_str('', 6)}",
-        "patient_id": f"PT{rnd()}", "patient_name": pick(PATIENTS),
-        "sex": random.choice([1, 2, 0]), "birthday": dt("%Y-%m-%d"),
-        "section": pick(DEPT), "section_name": pick(DEPT),
-        "diagnosis": f"初步诊断_{rnd()}",
-        "dataInfoList": items, "specimen_type": "external",
+        "packetId": f"PKT{rand_str('', 8)}",
+        "sendingOrg": pick(ORG_CODES), "centerOrg": pick(LABS),
+        "sender": pick(DOCTORS), "senderName": pick(DOCTORS), "sendDate": dt("%Y-%m-%d %H:%M:%S"),
+        "sendFlag": "1",
+        "dataInfoList": items,
     }
 
 def specimen_receive():
     """Specimen receive by barcode"""
     return {
-        "barcode": rand_str("BC", 8), "doct_advise_no": rand_str("DC", 6),
-        "receive_status": random.choice(["received", "qualified", "rejected"]),
+        "doctAdviseNo": rand_str("BC", 8), "sendingOrg": pick(ORG_CODES),
+        "receiver": pick(DOCTORS), "receiverName": pick(DOCTORS),
+        "receiveTime": dt("%Y-%m-%d %H:%M:%S"), "receiveFlag": "1", "status": 1,
     }
 
 def specimen_query():
     """Specimen query"""
-    return {"barcode": rand_str("BC", 8)}
+    return {"doctAdviseNo": rand_str("BC", 8)}
 
 def report_upload():
     """Upload test report"""
+    global _last_report_id
     items = []
     for _ in range(random.randint(1, 4)):
         it = pick(ITEMS)
-        items.append({"testId": f"TST{rand_str('', 4)}", "testName": it[1],
+        items.append({"testId": f"TST{rand_str('', 4)}", "chineseName": it[1],
                        "testResult": f"结果_{rnd()}", "unit": random.choice(["g/L","mmol/L","%"]),
-                       "refRange": f"0-{random.randint(10,100)}"})
+                       "refRange": f"0-{random.randint(10,100)}", "sampleNo": f"SN{rand_str('', 6)}"})
+    _last_report_id = f"RPT{rand_str('', 8)}"
     return {
-        "report_id": f"RPT{rand_str('', 8)}", "barcode": rand_str("BC", 8),
-        "lab_org": pick(LABS), "patient_id": f"PT{rnd()}", "patient_name": pick(PATIENTS),
+        "reportId": _last_report_id, "doctAdviseNo": rand_str("BC", 8),
+        "sampleNo": f"SN{rand_str('', 6)}",
+        "labOrg": pick(LABS), "patientId": f"PT{rnd()}", "patientName": pick(PATIENTS),
         "sex": random.choice([1, 2, 0]), "birthday": dt("%Y-%m-%d"),
-        "section": pick(DEPT), "executor": pick(DOCTORS),
-        "data": {"items": items},
+        "section": pick(DEPT), "sectionName": pick(DEPT),
+        "checker": pick(DOCTORS), "checkerName": pick(DOCTORS),
+        "checkTime": dt("%Y-%m-%d %H:%M:%S"),
+        "receiver": pick(DOCTORS), "receiverName": pick(DOCTORS), "receiveTime": dt("%Y-%m-%d %H:%M:%S"),
+        "resultInfoList": items,
     }
 
 def report_query():
-    return {"barcode": rand_str("BC", 8), "report_status": "submitted"}
+    return {"doctAdviseNo": rand_str("BC", 8), "reportStatus": "submitted"}
+
+# Track last report_id so image upload can reference it
+_last_report_id = None
 
 def image_upload():
-    return {"report_id": random.randint(1, 10),
-            "report_url": f"https://img.ichse.test/r/{rand_str('', 6)}.jpg",
-            "image_type": random.choice(["report","graph","photo"]),
-            "image_desc": f"图文报告_{rnd()}"}
+    global _last_report_id
+    rid = _last_report_id if _last_report_id else f"RPT{rand_str('', 4)}"
+    return {"reportId": rid,
+            "labOrg": pick(LABS), "doctAdviseNo": rand_str("BC", 8),
+            "reportType": 1, "picNo": random.randint(1, 5),
+            "imageInfoList": [{"sampleNo": f"SN{rand_str('', 6)}",
+                               "imageText": f"BASE64_IMG_{rand_str('', 12)}",
+                               "format": "jpg"}]}
 
 def image_query():
-    return {"report_id": random.randint(1, 10)}
+    return {"reportId": _last_report_id if _last_report_id else f"RPT{rand_str('', 4)}"}
 
 def warn_upload():
     return {
-        "barcode": rand_str("BC", 8), "lab_org": pick(LABS),
-        "doct_advise_no": rand_str("DC", 4), "sample_no": f"SN{rand_str('', 6)}",
-        "patient_id": f"PT{rnd()}", "patient_name": pick(PATIENTS),
-        "sex": random.choice([1, 2, 0]), "birthday": dt("%Y-%m-%d"),
-        "executor": pick(DOCTORS), "executor_name": pick(DOCTORS),
-        "execute_date": dt("%Y-%m-%d %H:%M:%S"),
-        "section": pick(DEPT), "section_name": pick(DEPT),
-        "warn_info": f"危急值内容_{rnd()}", "test_id": f"TST{rand_str('', 4)}",
-        "test_name": pick(ITEMS)[1], "test_result": f"异常值_{rnd()}",
-        "warn_type": random.choice(["high","low","panic"]),
+        "dataInfoList": [{
+            "doctAdviseNo": rand_str("BC", 8), "labOrg": pick(LABS),
+            "sampleNo": f"SN{rand_str('', 6)}",
+            "patientId": f"PT{rnd()}", "patientName": pick(PATIENTS),
+            "sex": random.choice([1, 2, 0]), "birthday": dt("%Y-%m-%d"),
+            "executor": pick(DOCTORS), "executorName": pick(DOCTORS),
+            "executeDate": dt("%Y-%m-%d %H:%M:%S"),
+            "section": pick(DEPT), "sectionName": pick(DEPT),
+            "warnLogList": [{
+                "warnInfo": f"危急值内容_{rnd()}", "testId": f"TST{rand_str('', 4)}",
+                "testName": pick(ITEMS)[1], "testResult": f"异常值_{rnd()}",
+            }],
+        }],
     }
 
 def warn_query():
-    return {"barcode": rand_str("BC", 8), "warn_type": random.choice(["high","low"])}
+    return {"doctAdviseNo": rand_str("BC", 8), "warnType": random.choice(["high","low"])}
 
 def warn_update():
     return {
-        "doct_advise_no": rand_str("DC", 4), "sample_no": f"SN{rand_str('', 6)}",
-        "report_id": f"RPT{rand_str('', 4)}",
-        "receiver": pick(DOCTORS), "receive_date": dt("%Y-%m-%d %H:%M:%S"),
-        "receive_note": f"反馈备注_{rnd()}",
+        "doctAdviseNo": rand_str("DC", 4), "sampleNo": f"SN{rand_str('', 6)}",
+        "testId": f"TST{rand_str('', 4)}",
+        "receiver": pick(DOCTORS), "receiveDate": dt("%Y-%m-%d %H:%M:%S"),
+        "receiveNote": f"反馈备注_{rnd()}",
     }
 
 def qc_upload():
     return {
-        "lab_org": pick(LABS), "qc_type": random.choice(["indoor","outdoor"]),
-        "qc_date": dt(), "instrument_code": f"INS{rand_str('', 4)}",
-        "test_item_code": random.choice(["GLU","ALT","AST","UREA","CRE"]),
-        "data": {"qc_value": round(random.uniform(0, 200), 2),
-                 "qc_target": round(random.uniform(0, 200), 2),
-                 "qc_sd": round(random.uniform(0, 10), 2)}
+        "labOrg": pick(LABS), "qcType": random.choice(["indoor","outdoor"]),
+        "qcDate": dt(), "instrumentCode": f"INS{rand_str('', 4)}",
+        "testItemCode": random.choice(["GLU","ALT","AST","UREA","CRE"]),
+        "qcValue": round(random.uniform(0, 200), 2),
+        "qcTarget": round(random.uniform(0, 200), 2),
+        "qcSd": round(random.uniform(0, 10), 2),
     }
 
 def qc_query():
-    return {"lab_org": pick(LABS), "qc_type": random.choice(["indoor","outdoor"])}
+    return {"labOrg": pick(LABS), "qcType": random.choice(["indoor","outdoor"])}
 
 def device_upload():
-    return {"lab_org": pick(LABS), "device_code": rand_str("DEV", 8),
-            "device_name": random.choice(["全自动生化分析仪","血球分析仪","尿液分析仪",
-                                          "化学发光仪","PCR仪"]),
-            "data": {"model": f"型号{rand_str('', 4)}", "sn": f"SN{rand_str('', 8)}",
-                     "manufacturer": random.choice(["迈瑞","贝克曼","罗氏","西门子"])}}
+    return {"labOrg": pick(LABS), "deviceCode": rand_str("DEV", 8),
+            "deviceName": random.choice(["全自动生化分析仪","血球分析仪","尿液分析仪",
+                                        "化学发光仪","PCR仪"]),
+            "model": f"型号{rand_str('', 4)}", "sn": f"SN{rand_str('', 8)}",
+            "manufacturer": random.choice(["迈瑞","贝克曼","罗氏","西门子"])}
 
 def device_query():
-    return {"lab_org": pick(LABS)}
+    return {"labOrg": pick(LABS)}
 
 def app_submit():
-    return {"sending_org": pick(ORG_CODES), "center_org": pick(LABS),
-            "data": {"app_type": random.choice(["常规","急诊","体检"]),
-                     "app_date": dt(), "app_doctor": pick(DOCTORS)}}
+    return {"applicationId": f"APP{rand_str('', 8)}",
+            "sendingOrg": pick(ORG_CODES),
+            "patientName": pick(PATIENTS), "sex": str(random.choice([1, 2, 0])),
+            "age": str(random.randint(1, 90)), "patientId": f"PT{rnd()}",
+            "sectionName": pick(DEPT),
+            "requestMode": str(random.choice([1, 2])), "requester": pick(DOCTORS),
+            "requestTime": dt("%Y-%m-%d %H:%M:%S"),
+            "sendFlag": 1,
+            "itemInfoList": [{"itemCode": random.choice(["GLU","ALT","AST"]),
+                            "itemName": random.choice(["血糖","谷丙","谷草"])}]}
 
 def app_query():
-    return {"sending_org": pick(ORG_CODES), "app_status": "submitted"}
+    return {"sendingOrg": pick(ORG_CODES), "status": "submitted"}
 
 def cancel_report():
-    return {"report_id": f"RPT{rand_str('', 6)}", "barcode": rand_str("BC", 8)}
+    return {"doctAdviseNo": rand_str("BC", 8), "reportId": f"RPT{rand_str('', 6)}", "barcode": rand_str("BC", 8)}
 
 def report_flag():
-    return {"report_id": f"RPT{rand_str('', 6)}", "lab_report_url": f"https://rpt.ichse.test/{rand_str('',6)}.pdf"}
+    return {"reportId": f"RPT{rand_str('', 6)}", "labReportUrl": f"https://rpt.ichse.test/{rand_str('',6)}.pdf"}
 
 # ── Interface → template mapping (callables, called fresh each round) ──
 TEMPLATES = {
     "LAB-NX-MD-O001": ("MD upload lab_sample_types", lambda: md_upload("sample_type", "sample_describe")),
     "LAB-NX-MD-O002": ("MD upload lab_request_items", lambda: md_upload("item_code", "item_name")),
-    "LAB-NX-MD-O003": ("MD upload lab_test_items", lambda: md_upload("item_code", "item_name")),
-    "LAB-NX-MD-O004": ("MD upload lab_bio_items", lambda: md_upload("item_code", "item_name")),
-    "LAB-NX-MD-O005": ("MD upload lab_anti_items", lambda: md_upload("item_code", "item_name")),
+    "LAB-NX-MD-O003": ("MD upload lab_test_items", lambda: md_upload("test_id", "test_name")),
+    "LAB-NX-MD-O004": ("MD upload lab_bio_items", lambda: md_upload("bio_id", "bio_name")),
+    "LAB-NX-MD-O005": ("MD upload lab_anti_items", lambda: md_upload("anti_id", "anti_name")),
     "LAB-NX-MD-I001": ("MD download lab_sample_types", md_download),
     "LAB-NX-MD-I002": ("MD download lab_request_items", md_download),
     "LAB-NX-MD-I003": ("MD download lab_test_items", md_download),
