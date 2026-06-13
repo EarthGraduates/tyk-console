@@ -37,6 +37,11 @@ async def lifespan(app: FastAPI):
     # Build URL → func_name lookup for external Tyk routes
     await gw.init_url_map()
 
+    # Register all active APIs to Tyk (idempotent)
+    from routes.admin import register_all_active_apis
+    count = await register_all_active_apis()
+    print(f"  Startup: {count} active APIs synced to Tyk")
+
     # Background task: batch flush logs from Redis → PG
     asyncio.create_task(start_batch_flusher(redis, pg_pool))
 
