@@ -9,3 +9,4 @@ test-results/
 __pycache__/
 *.pyc
 services/venv/
+api-definitions/
