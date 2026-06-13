@@ -113,3 +113,4 @@ Docs follow naming rules defined in `docs/conventions.md#五文件组织规范`:
 | Architecture | `docs/architecture.md` | System-level changes |
 | Security | `docs/security.md` | Auth/RBAC changes |
 | Validation engine | `docs/designs/plans/2026-06-12-validation-engine.md` | Validation work |
+| API management model | `docs/designs/api-management-model.md` | API/page/key changes |
