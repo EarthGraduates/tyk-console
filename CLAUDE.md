@@ -80,3 +80,16 @@ All five canonical roles use their default label names. See `docs/agents/triage-
 ### Domain docs
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/domain.md`.
+
+### Dev conventions
+
+All naming, directory structure, database schema, and API design must follow `docs/dev-conventions.md`. Key rules:
+
+- Business domains: `LAB` / `IMG` / `PATH` / `ECG` / `CSSD` (uppercase English, 3-4 chars)
+- Business tables: `biz.{domain}_{table}` (e.g. `biz.lab_sample_types`)
+- PG functions: `ichse.{domain}_{platform}_{category}_{bizid}_{op}`
+- Interface ID: `{DOMAIN}-{PLATFORM}-{CATEGORY}-{DIR}{SEQ}` (e.g. `LAB-NX-MD-O001`)
+- Scripts: `services/scripts/{domain}/`
+- Frontend business pages: `src/pages/business/{domain}/{resource}/`
+- Frontend business routes: `/business/{domain}/{resource}`
+- Shared modules (engine, loader, sink, routes, validation_rules, interfaces table) never get a biz prefix

@@ -2,13 +2,14 @@
 -- V1.4: 业务表 — PostgREST 直连 CRUD
 -- 基础字段: is_valid, version, created_at, updated_at, deleted_at
 -- 业务数据: data JSONB 存接口特有字段
+-- v2.0: 重命名为 lab_ 前缀
 -- ============================================================
 
 -- MD: 样本类型字典 (已存在，加 data 列)
-ALTER TABLE biz.sample_types ADD COLUMN IF NOT EXISTS data jsonb DEFAULT '{}';
+ALTER TABLE biz.lab_sample_types ADD COLUMN IF NOT EXISTS data jsonb DEFAULT '{}';
 
 -- MD: 检验项目字典
-CREATE TABLE biz.request_items (
+CREATE TABLE biz.lab_request_items (
   id serial PRIMARY KEY,
   lab_org text NOT NULL,
   item_code text NOT NULL,
@@ -23,7 +24,7 @@ CREATE TABLE biz.request_items (
 );
 
 -- MD: 报告项目字典
-CREATE TABLE biz.test_items (
+CREATE TABLE biz.lab_test_items (
   id serial PRIMARY KEY,
   lab_org text NOT NULL,
   item_code text NOT NULL,
@@ -38,7 +39,7 @@ CREATE TABLE biz.test_items (
 );
 
 -- MD: 细菌字典
-CREATE TABLE biz.bio_items (
+CREATE TABLE biz.lab_bio_items (
   id serial PRIMARY KEY,
   lab_org text NOT NULL,
   item_code text NOT NULL,
@@ -53,7 +54,7 @@ CREATE TABLE biz.bio_items (
 );
 
 -- MD: 药敏字典
-CREATE TABLE biz.anti_items (
+CREATE TABLE biz.lab_anti_items (
   id serial PRIMARY KEY,
   lab_org text NOT NULL,
   item_code text NOT NULL,
@@ -68,7 +69,7 @@ CREATE TABLE biz.anti_items (
 );
 
 -- SP/RC: 标本
-CREATE TABLE biz.specimens (
+CREATE TABLE biz.lab_specimens (
   id serial PRIMARY KEY,
   barcode text,
   sending_org text,
@@ -82,10 +83,10 @@ CREATE TABLE biz.specimens (
   updated_at timestamptz DEFAULT now(),
   deleted_at timestamptz DEFAULT NULL
 );
-CREATE INDEX idx_specimens_barcode ON biz.specimens(barcode);
+CREATE INDEX idx_lab_specimens_barcode ON biz.lab_specimens(barcode);
 
 -- RP: 检验报告
-CREATE TABLE biz.test_reports (
+CREATE TABLE biz.lab_test_reports (
   id serial PRIMARY KEY,
   report_id text,
   barcode text,
@@ -100,9 +101,9 @@ CREATE TABLE biz.test_reports (
 );
 
 -- RP: 报告图片
-CREATE TABLE biz.report_images (
+CREATE TABLE biz.lab_report_images (
   id serial PRIMARY KEY,
-  report_id int REFERENCES biz.test_reports(id),
+  report_id int REFERENCES biz.lab_test_reports(id),
   image_type text,
   data jsonb DEFAULT '{}',
   is_valid boolean DEFAULT true,
@@ -113,7 +114,7 @@ CREATE TABLE biz.report_images (
 );
 
 -- CV: 危急值
-CREATE TABLE biz.sample_warnings (
+CREATE TABLE biz.lab_sample_warnings (
   id serial PRIMARY KEY,
   barcode text,
   lab_org text,
@@ -128,7 +129,7 @@ CREATE TABLE biz.sample_warnings (
 );
 
 -- QC: 质控数据
-CREATE TABLE biz.qc_data (
+CREATE TABLE biz.lab_qc_data (
   id serial PRIMARY KEY,
   lab_org text,
   qc_type text,
@@ -141,7 +142,7 @@ CREATE TABLE biz.qc_data (
 );
 
 -- EQ: 设备信息
-CREATE TABLE biz.device_info (
+CREATE TABLE biz.lab_device_info (
   id serial PRIMARY KEY,
   lab_org text,
   device_code text,
@@ -156,7 +157,7 @@ CREATE TABLE biz.device_info (
 );
 
 -- QR: 检验申请
-CREATE TABLE biz.applications (
+CREATE TABLE biz.lab_applications (
   id serial PRIMARY KEY,
   app_no text,
   sending_org text,
@@ -178,8 +179,8 @@ DECLARE
   tbl text;
 BEGIN
   FOR tbl IN
-    SELECT unnest(ARRAY['sample_types','request_items','test_items','bio_items','anti_items',
-      'specimens','test_reports','report_images','sample_warnings','qc_data','device_info','applications'])
+    SELECT unnest(ARRAY['lab_sample_types','lab_request_items','lab_test_items','lab_bio_items','lab_anti_items',
+      'lab_specimens','lab_test_reports','lab_report_images','lab_sample_warnings','lab_qc_data','lab_device_info','lab_applications'])
   LOOP
     EXECUTE format('DROP VIEW IF EXISTS ichse.%I CASCADE', tbl);
     EXECUTE format('CREATE VIEW ichse.%I AS SELECT * FROM biz.%I WHERE is_valid = true', tbl, tbl);

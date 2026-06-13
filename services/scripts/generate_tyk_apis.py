@@ -1,6 +1,7 @@
 """
 Generate one Tyk API JSON file per interface in biz.interfaces.
 
+v2.0: Uses LAB-NX-* interface_id format from biz.interfaces.
 listen_path: /api/ygt/mdrs/v1/lis-center/{direction_slug}/{operation}
 target_url:  http://host.docker.internal:8000
 """

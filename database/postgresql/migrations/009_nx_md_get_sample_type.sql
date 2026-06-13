@@ -1,13 +1,13 @@
 -- ============================================================
--- PG Function: nx_md_get_sample_type
--- 日期: 2026-06-12
+-- PG Function: lab_nx_md_a07_get_sample_type
+-- 日期: 2026-06-12  |  更新: 2026-06-13 (v2.0 conventions)
 -- 用途: 下载样本类型字典（送检方从检验中心下载）
--- 暴露: POST /rpc/nx_md_get_sample_type (via PostgREST)
+-- 暴露: POST /rpc/lab_nx_md_a07_get_sample_type (via PostgREST)
 -- ============================================================
 
 -- 参数必须为无名 json，PostgREST 才能做单对象绑定
 
-CREATE OR REPLACE FUNCTION ichse.nx_md_get_sample_type(json)
+CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a07_get_sample_type(json)
 RETURNS json AS $$
 DECLARE
   v_center_org text;
@@ -34,7 +34,7 @@ BEGIN
       )
     ), '[]'::jsonb)
   ) INTO v_result
-  FROM biz.sample_types st
+  FROM biz.lab_sample_types st
   WHERE st.lab_org = v_center_org
     AND st.is_valid = true;
 

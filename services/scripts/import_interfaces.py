@@ -1,5 +1,6 @@
 """
 SQLite → PG: 导入 36 个接口定义 + 参数字段
+v2.0: interface_id 使用 LAB-NX-* 格式，biz_domain = 'LAB'
 """
 import sqlite3
 import re
@@ -12,6 +13,7 @@ SQLITE_PATH = os.path.expanduser(
 )
 PG_DSN = "postgresql://ichse:ichse_dev@localhost:5433/ichse"
 PLATFORM = "NX"
+BIZ_DOMAIN = "LAB"
 
 CATEGORY_MAP = {
     "A": "MD",   # 主数据同步
@@ -46,7 +48,14 @@ def url_to_func_name(url: str) -> str:
 
 
 def build_interface_id(cat_code: str, data_flow: str, seq: int) -> str:
-    return f"{PLATFORM}-{cat_code}-{data_flow}{seq:03d}"
+    """Build interface_id: {BIZ_DOMAIN}-{PLATFORM}-{CATEGORY}-{DIR}{SEQ:03d}"""
+    return f"{BIZ_DOMAIN}-{PLATFORM}-{cat_code}-{data_flow}{seq:03d}"
+
+
+def build_func_name(cat_code: str, biz_id: str, op_name: str) -> str:
+    """Build func_name: lab_nx_{cat_code}_{biz_id}_{op_name}"""
+    biz_id_lower = biz_id.lower() if biz_id else ''
+    return f"lab_nx_{cat_code.lower()}_{biz_id_lower}_{op_name}"
 
 
 async def main():
@@ -73,20 +82,20 @@ async def main():
 
         op_name = url_to_func_name(row['url']) if row['url'] else ''
         biz_id_lower = row['biz_id'].lower() if row['biz_id'] else ''
-        func_name = f"nx_{cat_code.lower()}_{biz_id_lower}_{op_name}"
+        func_name = f"lab_nx_{cat_code.lower()}_{biz_id_lower}_{op_name}"
 
         await pg.execute(
             """
             INSERT INTO biz.interfaces
-              (interface_id, platform, biz_category, category_code, biz_id,
+              (interface_id, platform, biz_domain, biz_category, category_code, biz_id,
                interface_name, func_name, direction, data_flow, http_method, url, description)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
             ON CONFLICT (interface_id) DO UPDATE SET
               interface_name = EXCLUDED.interface_name,
               func_name = EXCLUDED.func_name,
               url = EXCLUDED.url
             """,
-            interface_id, PLATFORM, row["biz_category"], cat_code, row["biz_id"],
+            interface_id, PLATFORM, BIZ_DOMAIN, row["biz_category"], cat_code, row["biz_id"],
             row["interface_name"], func_name, row["direction"], data_flow,
             row["http_method"], row["url"], row["description"],
         )
@@ -96,21 +105,7 @@ async def main():
         "SELECT * FROM interface_detail ORDER BY id"
     ).fetchall()
 
-    # Build map: interface_id (like "4.1.3.1.1") → PG biz.interfaces.id
-    id_map = {
-        row["interface_id"]: row["id"]
-        for row in await pg.fetch("SELECT id, interface_id FROM biz.interfaces")
-    }
-    # Also build a reverse map from external interface_id → PG interface record
-    ext_to_pg = {
-        row["interface_id"]: row
-        for row in await pg.fetch(
-            "SELECT id, interface_id FROM biz.interfaces"
-        )
-    }
-    # Wait, I need a different key. The SQLite interface_detail uses 4.1.3.1.1 format.
-    # I need to match it to biz.interfaces rows. Let me use the interface_name instead.
-
+    # Build map: interface_name → PG biz.interfaces.id
     pg_interfaces = await pg.fetch(
         "SELECT id, interface_name, interface_id FROM biz.interfaces"
     )
