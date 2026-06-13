@@ -643,43 +643,73 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
--- 6. 质控 (QC) — stub
+-- 6. 质控 (QC)
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h01_upload_query_qc(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: QC', 'payload_received', true); END;
+RETURNS json AS $$
+BEGIN
+  INSERT INTO biz.lab_qc_data (org_lab, qc_type, qc_date, instrument_code, test_item_code, qc_value, qc_target, qc_sd)
+  VALUES (payload->>'labOrg', payload->>'qcType', (payload->>'qcDate')::date,
+          payload->>'instrumentCode', payload->>'testItemCode',
+          (payload->>'qcValue')::numeric, (payload->>'qcTarget')::numeric, (payload->>'qcSd')::numeric);
+  RETURN jsonb_build_object('code', 200, 'message', 'success');
+END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h02_upload_query_qc(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: QC', 'payload_received', true); END;
+RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_qc_h01_upload_query_qc(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h03_get_qc_data(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: QC', 'dataInfoList', '[]'::jsonb); END;
+RETURNS json AS $$
+DECLARE v_result jsonb;
+BEGIN
+  SELECT jsonb_build_object('code', 200, 'message', 'success',
+    'dataInfoList', COALESCE(jsonb_agg(row_to_json(q.*)::jsonb - 'is_valid' - 'version' - 'deleted_at'), '[]'::jsonb)
+  ) INTO v_result FROM biz.lab_qc_data q WHERE q.is_valid = true;
+  RETURN v_result;
+END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h04_get_qc_out_of_control_stats(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: QC', 'dataInfoList', '[]'::jsonb); END;
+RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_qc_h03_get_qc_data(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h05_get_eqa_results(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: QC', 'dataInfoList', '[]'::jsonb); END;
+RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_qc_h03_get_qc_data(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
--- 7. 设备 (EQ) — stub
+-- 7. 设备 (EQ)
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_eq_i01_upload_device_info(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: EQ', 'payload_received', true); END;
+RETURNS json AS $$
+BEGIN
+  INSERT INTO biz.lab_device_info (org_lab, device_code, device_name, model, sn, manufacturer)
+  VALUES (payload->>'labOrg', payload->>'deviceCode', payload->>'deviceName',
+          payload->>'model', payload->>'sn', payload->>'manufacturer')
+  ON CONFLICT (org_lab, device_code) DO UPDATE SET
+    device_name = EXCLUDED.device_name, model = EXCLUDED.model,
+    sn = EXCLUDED.sn, manufacturer = EXCLUDED.manufacturer, updated_at = now();
+  RETURN jsonb_build_object('code', 200, 'message', 'success');
+END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_eq_i02_upload_device_info(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: EQ', 'payload_received', true); END;
+RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_eq_i01_upload_device_info(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE OR REPLACE FUNCTION ichse.lab_nx_eq_i03_get_device_info(payload json)
-RETURNS json AS $$ BEGIN RETURN jsonb_build_object('code', 200, 'message', 'stub: EQ', 'dataInfoList', '[]'::jsonb); END;
+RETURNS json AS $$
+DECLARE v_result jsonb;
+BEGIN
+  SELECT jsonb_build_object('code', 200, 'message', 'success',
+    'dataInfoList', COALESCE(jsonb_agg(row_to_json(d.*)::jsonb - 'is_valid' - 'version' - 'deleted_at'), '[]'::jsonb)
+  ) INTO v_result FROM biz.lab_device_info d WHERE d.is_valid = true;
+  RETURN v_result;
+END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
