@@ -238,77 +238,41 @@ Tyk listen_path 格式：
 
 ---
 
-## 五、API JSON 文件规范
+## 五、API 注册规范
 
-### 5.1 目录结构
+### 5.1 数据模型
 
-```
-api-definitions/
-├── lab/
-│   ├── LAB-NX-MD-O001.json
-│   ├── LAB-NX-SP-I001.json
-│   └── ...
-├── img/
-│   ├── IMG-NX-RP-O001.json
-│   └── ...
-├── path/
-├── ecg/
-└── cssd/
-```
-
-### 5.2 文件命名
+API 定义以 `ichse.api_definitions` (PG) 为权威源。Tyk 是运行时执行引擎。
 
 ```
-{BIZ_DOMAIN}-{PLATFORM}-{CATEGORY}-{DIR}{SEQ}.json
+biz.interfaces (服务元数据)
+  │  interface_id 关联
+  ▼
+ichse.api_definitions (API 定义，PG 权威源)
+  │  POST /tyk/apis/
+  ▼
+Tyk Gateway (运行时)
 ```
 
-文件名 = `interface_id` + `.json`。
+### 5.2 API 注册方式
 
-### 5.3 文件内容
+**一键注册**（从接口管理页发起）：
+1. 选择 `biz.interfaces` 中的接口
+2. 调用 `POST /admin/register-api` → INSERT `api_definitions` + POST Tyk
 
-每个 JSON 文件是对应 Tyk API 定义的**完整配置**，字段规范：
+**手动注册**（从 API 定义页发起）：
+1. 填写 API 定义表单
+2. 写 `api_definitions` + POST Tyk
 
-```json
-{
-  "api_id": "{biz_domain}-{platform}-{category}-{dir}{seq}",
-  "name": "{BIZ_DOMAIN} {interface_name} ({func_name})",
-  "slug": "{biz_domain}-{platform}-{category}-{dir}{seq}",
-  "listen_path": "/api/{platform}/{biz_domain}/{path}",
-  "target_url": "http://services:8000",
-  "strip_listen_path": false,
-  "use_keyless": false,
-  "active": true,
-  "proxy": {
-    "target_url": "http://services:8000",
-    "listen_path": "/api/{platform}/{biz_domain}/{path}",
-    "strip_listen_path": false
-  },
-  "version_data": {
-    "not_versioned": true,
-    "versions": {
-      "Default": {
-        "name": "Default",
-        "use_extended_paths": true
-      }
-    }
-  }
-}
-```
+### 5.3 启动注册
 
-**规则：**
-- `api_id` 和 `slug` 使用小写 `interface_id`
-- `listen_path` 中必须包含 `{biz_domain}` 段
-- `target_url` 统一指向 Python services
-- 文件中的 `api_id` 必须与 `biz.interfaces.interface_id` 一致（大小写不敏感）
+Python services 启动时，从 PG 读取所有 `status='active'` 的 API，幂等 POST 到 Tyk。不写 JSON 文件，不挂载目录。
 
-### 5.4 生成脚本
+### 5.4 已废弃
 
-```python
-# services/scripts/{biz_domain}/generate_tyk_apis.py
-# 从 biz.interfaces WHERE biz_domain = 'LAB' 读取，生成 JSON
-```
-
-每个业务域有独立的生成脚本，参数化 `biz_domain` 过滤。
+- `generate_tyk_apis.py` — 删除，不再生成 JSON 文件
+- `api-definitions/` 目录 — 删除，加入 `.gitignore`
+- Tyk apps 目录挂载 — 不再需要
 
 ---
 
@@ -334,10 +298,10 @@ src/pages/
 │   ├── path/                     # 病理中心
 │   ├── ecg/                      # 心电中心
 │   └── cssd/                     # 消毒供应中心
-├── apis/                         # API 服务管理（共享）
+├── apis/                         # API 定义（共享，PG权威源+Tyk状态）
+├── interfaces/                   # 接口管理（共享，查看biz.interfaces+一键注册）
 ├── keys/                         # 密钥管理（共享）
 ├── gateway/                      # 网关管理（共享）
-├── api-records/                  # 历史记录（共享）
 ├── validation-rules/             # 校验规则管理（共享）
 ├── users/                        # 用户管理（共享）
 ├── audit/                        # 审计日志（共享）
@@ -438,12 +402,10 @@ services/
     ├── lab/
     │   ├── import_interfaces.py  #   从 SQLite 导入接口元数据
     │   ├── generate_test_data.py #   生成测试数据并调 Tyk
-    │   └── generate_tyk_apis.py  #   生成 Tyk API JSON 文件
     ├── img/
     │   ├── import_interfaces.py
     │   ├── generate_test_data.py
-    │   └── generate_tyk_apis.py
-    ├── path/
+        ├── path/
     ├── ecg/
     └── cssd/
 ```
@@ -451,8 +413,7 @@ services/
 **规则：**
 - `engine/`、`loader/`、`sink/`、`routes/`、`plugins/` 是**共享模块**，不对任何业务域做特化
 - `scripts/` 按业务域分目录：`scripts/{biz_domain}/`
-- 每个业务域的脚本结构一致：`import_interfaces.py` + `generate_test_data.py` + `generate_tyk_apis.py`
-- 共享脚本工具函数抽取到 `services/utils/` 或 `services/scripts/common.py`
+- 每个业务域的脚本结构一致：`import_interfaces.py` + `generate_test_data.py`- 共享脚本工具函数抽取到 `services/utils/` 或 `services/scripts/common.py`
 
 ### 7.2 校验引擎规则
 
@@ -530,7 +491,7 @@ test-data/
 | 业务数据表 | `biz.{biz_domain}_*` | `biz.lab_sample_types` |
 | PG 函数 | `ichse.{biz_domain}_*` | `ichse.lab_nx_md_get_sample_type` |
 | 接口 ID | `{BIZ_DOMAIN}-*` | `LAB-NX-MD-O001` |
-| API JSON 文件 | `api-definitions/{biz_domain}/` | `api-definitions/lab/LAB-NX-MD-O001.json` |
+| API 注册 | `POST /admin/register-api` | 一键注册到 `ichse.api_definitions` + Tyk |
 | 导入脚本 | `scripts/{biz_domain}/` | `scripts/lab/import_interfaces.py` |
 | 测试数据 | `test-data/{biz_domain}/` | `test-data/lab/seed.sql` |
 | 前端业务页 | `pages/business/{biz_domain}/` | `pages/business/lab/sample-types/` |
@@ -551,7 +512,7 @@ test-data/
 4. **[ ] 建 PG 函数**：`database/postgresql/migrations/{号段}_img_functions.sql`
    - `ichse.img_nx_*` 函数
 5. **[ ] 导入接口元数据**：编写 `services/scripts/img/import_interfaces.py`，插入 `biz.interfaces`（带 `biz_domain='IMG'`）
-6. **[ ] 生成 Tyk API JSON**：编写 `services/scripts/img/generate_tyk_apis.py`
+6. **[ ] 注册 API**：在接口管理页一键注册，或通过 API 定义页手动注册
 7. **[ ] 前端业务页面**：`src/pages/business/img/{resource}/index.tsx`
 8. **[ ] 前端路由和菜单**：在 `App.tsx` 注册路由，菜单增加影像中心入口
 9. **[ ] 测试数据**：`test-data/img/` 目录和种子数据
@@ -568,7 +529,7 @@ test-data/
 | PostgREST 视图 | `ichse.{domain}_{table}` | `ichse.lab_sample_types` |
 | PG 函数 | `ichse.{domain}_{platform}_{cat}_{bizid}_{op}` | `ichse.lab_nx_md_a07_get_sample_type` |
 | 接口 ID | `{DOMAIN}-{PLAT}-{CAT}-{DIR}{SEQ}` | `LAB-NX-MD-O001` |
-| Tyk API 文件 | `api-definitions/{domain}/{INTERFACE_ID}.json` | `api-definitions/lab/LAB-NX-MD-O001.json` |
+| Tyk API ID | `ichse-{interface_id.lower()}` | `ichse-lab-nx-md-o001` |
 | Tyk listen_path | `/api/{plat}/{domain}/{cat}/{dir}/{op}` | `/api/nx/lab/md/centerljzx/uploadSampleType` |
 | Python 脚本 | `services/scripts/{domain}/{purpose}.py` | `services/scripts/lab/import_interfaces.py` |
 | 前端路由 | `/business/{domain}/{resource}` | `/business/lab/sample-types` |
@@ -610,10 +571,6 @@ test-data/
 │
 ├── database/
 │   └── postgresql/migrations/ # 迁移文件（按序号命名）
-│
-└── api-definitions/           # API JSON 定义
-    └── {biz_domain}/
-        └── {INTERFACE_ID}.json
 ```
 
 ### 5.2 命名规则
