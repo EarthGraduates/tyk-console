@@ -574,3 +574,71 @@ test-data/
 | 前端路由 | `/business/{domain}/{resource}` | `/business/lab/sample-types` |
 | 前端页面 | `src/pages/business/{domain}/{resource}/` | `src/pages/business/lab/sample-types/` |
 | 测试数据 | `test-data/{domain}/` | `test-data/lab/payloads/` |
+
+---
+
+## 五、文件组织规范
+
+### 5.1 目录结构
+
+```
+.
+├── README.md                  # 项目入口
+├── CONTEXT.md                 # 领域语言（skill 期望，勿改名）
+├── CLAUDE.md                  # Agent 行为指南
+│
+├── docs/
+│   ├── conventions.md         # 本文件 — 开发规范
+│   ├── architecture.md        # 架构总览
+│   ├── security.md            # 安全合规
+│   │
+│   ├── adr/                   # 架构决策记录（skill 期望）
+│   │   └── NNNN-slug.md
+│   │
+│   ├── agents/                # Agent 配置
+│   │   └── subject.md
+│   │
+│   └── designs/               # 设计文档
+│       ├── subject.md         #   设计（不加日期，活的文档）
+│       └── plans/             #   实施计划
+│           └── YYYY-MM-DD-slug.md  #   计划（加日期，时间点快照）
+│
+├── dev-logs/
+│   ├── README.md              # 日志规范
+│   ├── YYYY-MM-DD-slug.md     # 阶段/版本总结
+│   └── vX.Y-summary.md        # 版本总结
+│
+├── database/
+│   └── postgresql/migrations/ # 迁移文件（按序号命名）
+│
+└── api-definitions/           # API JSON 定义
+    └── {biz_domain}/
+        └── {INTERFACE_ID}.json
+```
+
+### 5.2 命名规则
+
+| 类型 | 目录 | 命名格式 | 示例 |
+|------|------|---------|------|
+| 领域语言 | 根 | `CONTEXT.md` | — |
+| Agent 指南 | 根 | `CLAUDE.md` | — |
+| 架构决策 | `docs/adr/` | `NNNN-slug.md` | `0001-api-deactivate-no-key-handling.md` |
+| 设计文档 | `docs/designs/` | `subject.md` | `database.md` |
+| 实施计划 | `docs/designs/plans/` | `YYYY-MM-DD-slug.md` | `2026-06-12-validation-engine.md` |
+| 参考规范 | `docs/` | `subject.md` | `conventions.md` |
+| 开发日志 | `dev-logs/` | `YYYY-MM-DD-slug.md` | `2026-05-20-phase-summary.md` |
+
+### 5.3 核心原则
+
+1. **设计不加日期，计划加日期** — 设计文档持续更新，计划是时间点快照
+2. **全部 kebab-case** — 不用下划线、大写、空格
+3. **不加版本号** — 当前版本即文件，旧版本在 git 历史
+4. **每个目录单一职责** — 不混放不同类型文件
+5. **ADRs + CONTEXT.md 是 skills 的唯一入口** — 其他文档按需引用，不强依赖
+
+### 5.4 禁止事项
+
+- 禁止在根目录新增非标准 `.md` 文件
+- 禁止在 `docs/` 根下放设计或计划（必须进子目录）
+- 禁止文件名中使用版本号（`v1`, `v2`, `-v2`, `-old`）
+- 禁止 `dev-logs/` 放单日/单 bug 碎片日志（只保留阶段/版本总结）

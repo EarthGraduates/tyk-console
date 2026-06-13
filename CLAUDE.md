@@ -83,7 +83,7 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at repo root. See `docs/agents/do
 
 ### Dev conventions
 
-All naming, directory structure, database schema, and API design must follow `docs/dev-conventions.md`. Key rules:
+All naming, directory structure, database schema, and API design must follow `docs/conventions.md`. Key rules:
 
 - Business domains: `LAB` / `IMG` / `PATH` / `ECG` / `CSSD` (uppercase English, 3-4 chars)
 - Business tables: `biz.{domain}_{table}` (e.g. `biz.lab_sample_types`)
@@ -93,3 +93,23 @@ All naming, directory structure, database schema, and API design must follow `do
 - Frontend business pages: `src/pages/business/{domain}/{resource}/`
 - Frontend business routes: `/business/{domain}/{resource}`
 - Shared modules (engine, loader, sink, routes, validation_rules, interfaces table) never get a biz prefix
+
+### File conventions
+
+Docs follow naming rules defined in `docs/conventions.md#五文件组织规范`:
+
+- **Design docs** live in `docs/designs/`, named `subject.md` (no date, they evolve)
+- **Plans** live in `docs/designs/plans/`, named `YYYY-MM-DD-slug.md` (date prefix, snapshots)
+- **ADRs** live in `docs/adr/`, named `NNNN-slug.md`
+- **Dev logs** live in `dev-logs/`, only for phase/version summaries
+- **No version numbers in filenames** — current is the file, history is git
+
+### Key reference docs
+
+| Doc | Path | When to read |
+|-----|------|-------------|
+| Conventions | `docs/conventions.md` | Any code change |
+| DB design | `docs/designs/database.md` | Schema changes |
+| Architecture | `docs/architecture.md` | System-level changes |
+| Security | `docs/security.md` | Auth/RBAC changes |
+| Validation engine | `docs/designs/plans/2026-06-12-validation-engine.md` | Validation work |
