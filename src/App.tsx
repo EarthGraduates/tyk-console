@@ -33,6 +33,9 @@ import {
   DashboardOutlined, ApiOutlined, KeyOutlined, SettingOutlined,
   CloudServerOutlined, HistoryOutlined, LogoutOutlined,
   UserOutlined, AuditOutlined, SafetyOutlined, SafetyCertificateOutlined, BarChartOutlined,
+  ExperimentOutlined, DatabaseOutlined, FileAddOutlined, FileSearchOutlined,
+  ScanOutlined, SearchOutlined, CloseCircleOutlined, FileTextOutlined,
+  WarningOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { BrowserRouter, Route, Routes, useNavigate, useLocation, Navigate } from 'react-router';
 import { useState, useMemo } from 'react';
@@ -54,6 +57,27 @@ import SecurityPage from './pages/security';
 import ValidationRulesPage from './pages/validation-rules';
 import LoginPage from './pages/login';
 
+// LAB business pages
+import SampleTypesPage from './pages/business/lab/sample-types';
+import RequestItemsPage from './pages/business/lab/request-items';
+import TestItemsPage from './pages/business/lab/test-items';
+import BioItemsPage from './pages/business/lab/bio-items';
+import AntiItemsPage from './pages/business/lab/anti-items';
+import ApplicationSubmitPage from './pages/business/lab/applications/submit';
+import ApplicationReviewPage from './pages/business/lab/applications/review';
+import SpecimenCollectPage from './pages/business/lab/specimens/collect';
+import SpecimenReceivePage from './pages/business/lab/specimens/receive';
+import SpecimenTrackingPage from './pages/business/lab/specimens/tracking';
+import ReportListPage from './pages/business/lab/reports/list';
+import ReportDetailPage from './pages/business/lab/reports/detail';
+import FirstReviewListPage from './pages/business/lab/reviews/first-review-list';
+import FirstReviewDetailPage from './pages/business/lab/reviews/first-review-detail';
+import SecondReviewListPage from './pages/business/lab/reviews/second-review-list';
+import SecondReviewDetailPage from './pages/business/lab/reviews/second-review-detail';
+import CriticalValuesPage from './pages/business/lab/critical-values';
+import QualityControlPage from './pages/business/lab/quality-control';
+import DevicesPage from './pages/business/lab/devices';
+
 const SIDER_WIDTH = 200;
 const SIDER_COLLAPSED_WIDTH = 80;
 
@@ -62,12 +86,59 @@ interface MenuItem {
   icon: React.ReactNode;
   label: string;
   allowedRoles: BizRole[];
+  children?: MenuItem[];
 }
 
 /** 全量菜单定义，每个菜单项声明允许的角色 */
 const ALL_MENU_ITEMS: MenuItem[] = [
   { key: '/',            icon: <DashboardOutlined />,    label: '系统仪表板',  allowedRoles: ['system_admin', 'security_admin'] },
   { key: '/business',    icon: <BarChartOutlined />,      label: '业务仪表板',  allowedRoles: ['audit_admin', 'business_user', 'viewer'] },
+  // ── LAB 业务菜单 ──
+  { key: '/business/lab', icon: <ExperimentOutlined />, label: '检验业务', allowedRoles: ['business_user', 'viewer'],
+    children: [
+      { key: 'lab-dict', icon: <DatabaseOutlined />, label: '主数据', allowedRoles: ['business_user', 'viewer'],
+        children: [
+          { key: '/business/lab/sample-types', icon: <DatabaseOutlined />, label: '样本类型字典', allowedRoles: ['business_user', 'viewer'] },
+          { key: '/business/lab/request-items', icon: <DatabaseOutlined />, label: '检验项目字典', allowedRoles: ['business_user', 'viewer'] },
+          { key: '/business/lab/test-items', icon: <DatabaseOutlined />, label: '报告项目字典', allowedRoles: ['business_user', 'viewer'] },
+          { key: '/business/lab/bio-items', icon: <DatabaseOutlined />, label: '细菌字典', allowedRoles: ['business_user', 'viewer'] },
+          { key: '/business/lab/anti-items', icon: <DatabaseOutlined />, label: '药敏字典', allowedRoles: ['business_user', 'viewer'] },
+        ],
+      },
+      { key: 'lab-send', icon: <FileAddOutlined />, label: '标本送检', allowedRoles: ['business_user'],
+        children: [
+          { key: '/business/lab/applications/submit', icon: <FileAddOutlined />, label: '检验申请', allowedRoles: ['business_user'] },
+          { key: '/business/lab/specimens/collect', icon: <ScanOutlined />, label: '样本采集确认', allowedRoles: ['business_user'] },
+        ],
+      },
+      { key: 'lab-review-app', icon: <FileSearchOutlined />, label: '申请受理', allowedRoles: ['business_user'],
+        children: [
+          { key: '/business/lab/applications/review', icon: <FileSearchOutlined />, label: '申请受理', allowedRoles: ['business_user'] },
+        ],
+      },
+      { key: 'lab-receive', icon: <ScanOutlined />, label: '标本接收', allowedRoles: ['business_user'],
+        children: [
+          { key: '/business/lab/specimens/receive', icon: <ScanOutlined />, label: '标本接收登记', allowedRoles: ['business_user'] },
+          { key: '/business/lab/specimens/tracking', icon: <SearchOutlined />, label: '标本状态跟踪', allowedRoles: ['business_user', 'viewer'] },
+        ],
+      },
+      { key: 'lab-report-mgmt', icon: <FileTextOutlined />, label: '报告管理', allowedRoles: ['business_user', 'viewer'],
+        children: [
+          { key: '/business/lab/reports/list', icon: <FileTextOutlined />, label: '报告列表', allowedRoles: ['business_user', 'viewer'] },
+          { key: '/business/lab/reviews/first-review', icon: <AuditOutlined />, label: '报告一审', allowedRoles: ['business_user'] },
+          { key: '/business/lab/reviews/second-review', icon: <AuditOutlined />, label: '报告二审', allowedRoles: ['business_user'] },
+        ],
+      },
+      { key: 'lab-quality', icon: <WarningOutlined />, label: '质量管理', allowedRoles: ['business_user'],
+        children: [
+          { key: '/business/lab/critical-values', icon: <WarningOutlined />, label: '危急值', allowedRoles: ['business_user'] },
+          { key: '/business/lab/quality-control', icon: <ToolOutlined />, label: '质控数据', allowedRoles: ['business_user'] },
+          { key: '/business/lab/devices', icon: <ToolOutlined />, label: '设备管理', allowedRoles: ['business_user'] },
+        ],
+      },
+    ],
+  },
+  // ── 系统菜单 ──
   { key: '/gateway',     icon: <CloudServerOutlined />,   label: '网关管理',    allowedRoles: ['system_admin'] },
   { key: '/apis',        icon: <ApiOutlined />,           label: 'API 定义',    allowedRoles: ['system_admin', 'business_user'] },
   { key: '/interfaces',  icon: <HistoryOutlined />,       label: '接口管理',     allowedRoles: ['system_admin', 'security_admin', 'audit_admin', 'business_user', 'viewer'] },
@@ -93,20 +164,45 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 
   const siderWidth = collapsed ? SIDER_COLLAPSED_WIDTH : SIDER_WIDTH;
 
-  // 按角色过滤菜单项
-  const menuItems = useMemo(
-    () =>
-      ALL_MENU_ITEMS
-        .filter(item => role && item.allowedRoles.includes(role))
-        .map(({ key, icon, label }) => ({ key, icon, label })),
-    [role],
-  );
+  // 递归过滤菜单树：保留匹配角色的节点；父节点无可见子节点时隐藏
+  function filterMenu(items: MenuItem[]): any[] {
+    return items
+      .filter(item => role && item.allowedRoles.includes(role))
+      .map(({ key, icon, label, children }) => {
+        if (children && children.length > 0) {
+          const filteredChildren = filterMenu(children);
+          if (filteredChildren.length === 0) return null;
+          return { key, icon, label, children: filteredChildren };
+        }
+        return { key, icon, label };
+      })
+      .filter(Boolean);
+  }
 
-  // selectedKeys: 精确匹配或取第一段
-  const pathFirst = `/${location.pathname.split('/')[1]}`;
-  const selectedKey = menuItems.some(m => m.key === location.pathname)
-    ? location.pathname
-    : pathFirst;
+  const menuItems = useMemo(() => filterMenu(ALL_MENU_ITEMS), [role]);
+
+  // selectedKeys: 精确匹配或最长前缀匹配
+  const selectedKey = useMemo(() => {
+    function collectKeys(items: any[]): string[] {
+      const keys: string[] = [];
+      for (const item of items) {
+        keys.push(item.key);
+        if (item.children) keys.push(...collectKeys(item.children));
+      }
+      return keys;
+    }
+    const allKeys = collectKeys(menuItems);
+    // 精确匹配
+    if (allKeys.includes(location.pathname)) return location.pathname;
+    // 取最长前缀匹配（用于 /business/lab/reports/detail/:id 这类带参数的路由）
+    const parts = location.pathname.split('/');
+    while (parts.length > 1) {
+      parts.pop();
+      const prefix = parts.join('/') || '/';
+      if (allKeys.includes(prefix)) return prefix;
+    }
+    return `/${location.pathname.split('/')[1]}`;
+  }, [location.pathname, menuItems]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
@@ -212,6 +308,26 @@ function App() {
                             <Route path="/security" element={<RequireRole roles={['security_admin']}><SecurityPage /></RequireRole>} />
                             <Route path="/validation-rules" element={<RequireRole roles={['system_admin', 'security_admin']}><ValidationRulesPage /></RequireRole>} />
                             <Route path="/settings" element={<SettingsPage />} />
+                            {/* ── LAB 业务路由 ── */}
+                            <Route path="/business/lab/sample-types" element={<RequireRole roles={['business_user', 'viewer']}><SampleTypesPage /></RequireRole>} />
+                            <Route path="/business/lab/request-items" element={<RequireRole roles={['business_user', 'viewer']}><RequestItemsPage /></RequireRole>} />
+                            <Route path="/business/lab/test-items" element={<RequireRole roles={['business_user', 'viewer']}><TestItemsPage /></RequireRole>} />
+                            <Route path="/business/lab/bio-items" element={<RequireRole roles={['business_user', 'viewer']}><BioItemsPage /></RequireRole>} />
+                            <Route path="/business/lab/anti-items" element={<RequireRole roles={['business_user', 'viewer']}><AntiItemsPage /></RequireRole>} />
+                            <Route path="/business/lab/applications/submit" element={<RequireRole roles={['business_user']}><ApplicationSubmitPage /></RequireRole>} />
+                            <Route path="/business/lab/applications/review" element={<RequireRole roles={['business_user']}><ApplicationReviewPage /></RequireRole>} />
+                            <Route path="/business/lab/specimens/collect" element={<RequireRole roles={['business_user']}><SpecimenCollectPage /></RequireRole>} />
+                            <Route path="/business/lab/specimens/receive" element={<RequireRole roles={['business_user']}><SpecimenReceivePage /></RequireRole>} />
+                            <Route path="/business/lab/specimens/tracking" element={<RequireRole roles={['business_user', 'viewer']}><SpecimenTrackingPage /></RequireRole>} />
+                            <Route path="/business/lab/reports/list" element={<RequireRole roles={['business_user', 'viewer']}><ReportListPage /></RequireRole>} />
+                            <Route path="/business/lab/reports/detail/:rptId" element={<RequireRole roles={['business_user', 'viewer']}><ReportDetailPage /></RequireRole>} />
+                            <Route path="/business/lab/reviews/first-review" element={<RequireRole roles={['business_user']}><FirstReviewListPage /></RequireRole>} />
+                            <Route path="/business/lab/reviews/first-review/:rptId" element={<RequireRole roles={['business_user']}><FirstReviewDetailPage /></RequireRole>} />
+                            <Route path="/business/lab/reviews/second-review" element={<RequireRole roles={['business_user']}><SecondReviewListPage /></RequireRole>} />
+                            <Route path="/business/lab/reviews/second-review/:rptId" element={<RequireRole roles={['business_user']}><SecondReviewDetailPage /></RequireRole>} />
+                            <Route path="/business/lab/critical-values" element={<RequireRole roles={['business_user']}><CriticalValuesPage /></RequireRole>} />
+                            <Route path="/business/lab/quality-control" element={<RequireRole roles={['business_user']}><QualityControlPage /></RequireRole>} />
+                            <Route path="/business/lab/devices" element={<RequireRole roles={['business_user']}><DevicesPage /></RequireRole>} />
                           </Routes>
                         </AppLayout>
                       </Authenticated>
