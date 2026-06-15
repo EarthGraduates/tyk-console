@@ -22,10 +22,11 @@ export default function ReportListPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Direct PostgREST query on lab_test_reports view
-    fetch('http://localhost:3001/lab_test_reports?order=created_at.desc&limit=200', {
-      headers: { 'Content-Type': 'application/json' },
-    }).then(r => r.json()).then(setData).finally(() => setLoading(false));
+    fetch('/db/lab_test_reports?order=created_at.desc&limit=200')
+      .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => {

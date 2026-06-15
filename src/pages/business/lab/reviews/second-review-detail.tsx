@@ -21,19 +21,20 @@ export default function SecondReviewDetailPage() {
   useEffect(() => {
     if (!rptId) return;
     setLoading(true);
-    fetch(`http://localhost:3001/lab_test_reports?rpt_id=eq.${rptId}`, {
-      headers: { 'Content-Type': 'application/json' },
-    }).then(r => r.json()).then(async rows => {
-      if (rows?.[0]) {
-        const rpt = rows[0];
-        const subs = await Promise.all([
-          fetch(`http://localhost:3001/lab_report_result_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
-          fetch(`http://localhost:3001/lab_report_anti_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
-        ]);
-        setReport({ ...rpt, results: subs[0], antis: subs[1] });
-      }
-      setLoading(false);
-    });
+    fetch(`/db/lab_test_reports?rpt_id=eq.${rptId}`)
+      .then(r => r.json())
+      .then(async (rows: any[]) => {
+        if (rows?.[0]) {
+          const rpt = rows[0];
+          const subs = await Promise.all([
+            fetch(`/db/lab_report_result_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
+            fetch(`/db/lab_report_anti_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
+          ]);
+          setReport({ ...rpt, results: subs[0], antis: subs[1] });
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [rptId]);
 
   const handleReview = async (action: string) => {

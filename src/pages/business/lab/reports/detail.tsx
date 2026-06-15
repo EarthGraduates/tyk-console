@@ -23,27 +23,24 @@ export default function ReportDetailPage() {
   useEffect(() => {
     if (!rptId) return;
     setLoading(true);
-    // Fetch report by rpt_id via PostgREST
-    fetch(`http://localhost:3001/lab_test_reports?rpt_id=eq.${rptId}`, {
-      headers: { 'Content-Type': 'application/json' },
-    }).then(r => r.json()).then(async rows => {
-      if (rows?.[0]) {
-        const rpt = rows[0];
-        // Fetch sub-tables
-        const subs = await Promise.all([
-          fetch(`http://localhost:3001/lab_report_result_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
-          fetch(`http://localhost:3001/lab_report_plant_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
-          fetch(`http://localhost:3001/lab_report_anti_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
-          fetch(`http://localhost:3001/lab_report_bio_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
-        ]);
-        setReport({ ...rpt, results: subs[0], plants: subs[1], antis: subs[2], bios: subs[3] });
-
-        // Fetch review logs
-        const logRes = await labReportDb.getReviewLogs(rpt.rpt_id);
-        setReviewLogs(logRes?.dataInfoList || []);
-      }
-      setLoading(false);
-    });
+    fetch(`/db/lab_test_reports?rpt_id=eq.${rptId}`)
+      .then(r => r.json())
+      .then(async (rows: any[]) => {
+        if (rows?.[0]) {
+          const rpt = rows[0];
+          const subs = await Promise.all([
+            fetch(`/db/lab_report_result_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
+            fetch(`/db/lab_report_plant_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
+            fetch(`/db/lab_report_anti_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
+            fetch(`/db/lab_report_bio_items?report_id=eq.${rpt.id}&limit=200`).then(r => r.json()),
+          ]);
+          setReport({ ...rpt, results: subs[0], plants: subs[1], antis: subs[2], bios: subs[3] });
+          const logRes = await labReportDb.getReviewLogs(rpt.rpt_id);
+          setReviewLogs(logRes?.dataInfoList || []);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [rptId]);
 
   if (loading) return <Spin style={{ display: 'block', margin: '80px auto' }} size="large" />;
