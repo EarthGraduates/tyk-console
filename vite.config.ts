@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -21,5 +22,13 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/db/, ''),
       },
     },
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/test/vitest.setup.ts"],
+    css: false,
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    testTimeout: 20000,
   },
 });
