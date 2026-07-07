@@ -3,7 +3,8 @@
  * @module providers/validation-api
  */
 
-const PG_BASE = 'http://localhost:3001';
+const PG_BASE = import.meta.env.VITE_POSTGREST_URL || 'http://localhost:3001';
+const SERVICES_BASE = import.meta.env.VITE_SERVICES_URL || 'http://localhost:8000';
 
 async function pgFetch(path: string, options?: RequestInit) {
   const resp = await fetch(`${PG_BASE}${path}`, {
@@ -98,6 +99,6 @@ export async function deleteRule(id: number): Promise<void> {
 }
 
 export async function refreshRules(): Promise<{ status: string; rules_cached: number }> {
-  const resp = await fetch('http://localhost:8000/admin/refresh-rules', { method: 'POST' });
+  const resp = await fetch(`${SERVICES_BASE}/admin/refresh-rules`, { method: 'POST' });
   return resp.json();
 }

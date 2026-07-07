@@ -1,13 +1,13 @@
 """
 POST /rest/{func_name}        — legacy RPC
-POST /api/ygt/mdrs/v1/lis-center/{direction}/{operation}  — table CRUD or RPC
+POST /api/demo/mdrs/v1/lis-center/{direction}/{operation}  — table CRUD or RPC
 """
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 import httpx
 import json
 import asyncpg
-from config import POSTGREST_URL
+from config import POSTGREST_URL, PG_DSN
 
 router = APIRouter()
 
@@ -19,7 +19,7 @@ PG_POOL: asyncpg.Pool = None  # Set after lifespan creates pool
 
 async def init_url_map():
     global _url_map, PG_POOL
-    pg = await asyncpg.connect("postgresql://ichse:ichse_dev@localhost:5433/ichse")
+    pg = await asyncpg.connect(PG_DSN)
     rows = await pg.fetch(
         "SELECT func_name, url, target_table, target_op "
         "FROM biz.interfaces WHERE is_valid = true"
@@ -117,7 +117,7 @@ async def _handle(meta: dict, payload: dict):
             status_code=400,
             content={
                 "code": 400,
-                "message": "校验失败",
+                "message": "Validation failed",
                 "errors": [
                     {"field": e.field, "rule_type": e.rule_type.value, "message": e.message}
                     for e in result.errors
@@ -149,7 +149,7 @@ async def call_legacy(func_name: str, request: Request):
     return await _handle({"func_name": func_name}, await request.json())
 
 
-@router.post("/api/ygt/mdrs/v1/lis-center/{direction}/{operation}")
+@router.post("/api/demo/mdrs/v1/lis-center/{direction}/{operation}")
 async def call_external(direction: str, operation: str, request: Request):
     key = f"{direction}/{operation}"
     meta = _url_map.get(key)

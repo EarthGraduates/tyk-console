@@ -16,11 +16,11 @@ services:
     container_name: ichse-postgres
     command: >
       postgres
-      -c app.jwt_secret=dev-jwt-secret-change-in-production
+      -c app.jwt_secret=${PGRST_JWT_SECRET:-dev-jwt-secret-change-in-production}
     environment:
-      POSTGRES_USER: ichse
-      POSTGRES_PASSWORD: ichse_dev
-      POSTGRES_DB: ichse
+      POSTGRES_USER: ${POSTGRES_USER:-ichse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ichse_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-ichse}
     ports:
       - "5433:5432"
     volumes:
@@ -39,10 +39,10 @@ services:
     ports:
       - "3001:3000"
     environment:
-      PGRST_DB_URI: postgres://ichse:ichse_dev@postgres:5432/ichse
+      PGRST_DB_URI: postgres://${POSTGRES_USER:-ichse}:${POSTGRES_PASSWORD:-ichse_dev}@postgres:5432/${POSTGRES_DB:-ichse}
       PGRST_DB_SCHEMA: ichse
       PGRST_DB_ANON_ROLE: web_anon
-      PGRST_JWT_SECRET: dev-jwt-secret-change-in-production
+      PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:-dev-jwt-secret-change-in-production}
       PGRST_DB_PRE_REQUEST: ichse.db_pre_request
       PGRST_DB_CACHE_ENABLED: "false"
     depends_on:

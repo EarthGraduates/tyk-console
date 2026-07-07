@@ -29,13 +29,13 @@ BEGIN
   END LOOP;
 END $$;
 
--- 1b. Drop all lab_nx_* functions
+-- 1b. Drop all lab_demo_* functions
 DO $$
 DECLARE r record;
 BEGIN
   FOR r IN
     SELECT proname FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid
-    WHERE n.nspname = 'ichse' AND proname LIKE 'lab_nx_%'
+    WHERE n.nspname = 'ichse' AND proname LIKE 'lab_demo_%'
   LOOP
     EXECUTE format('DROP FUNCTION IF EXISTS ichse.%I(json) CASCADE', r.proname);
   END LOOP;
@@ -683,36 +683,36 @@ END $$;
 -- ============================================================
 
 -- 字典表
-UPDATE biz.interfaces SET target_table = 'lab_sample_types'  WHERE interface_id IN ('LAB-NX-MD-O001', 'LAB-NX-MD-I001');
-UPDATE biz.interfaces SET target_table = 'lab_request_items' WHERE interface_id IN ('LAB-NX-MD-O002', 'LAB-NX-MD-I002');
-UPDATE biz.interfaces SET target_table = 'lab_test_items'    WHERE interface_id IN ('LAB-NX-MD-O003', 'LAB-NX-MD-I003');
-UPDATE biz.interfaces SET target_table = 'lab_bio_items'     WHERE interface_id IN ('LAB-NX-MD-O004', 'LAB-NX-MD-I004');
-UPDATE biz.interfaces SET target_table = 'lab_anti_items'    WHERE interface_id IN ('LAB-NX-MD-O005', 'LAB-NX-MD-I005');
+UPDATE biz.interfaces SET target_table = 'lab_sample_types'  WHERE interface_id IN ('LAB-DEMO-MD-O001', 'LAB-DEMO-MD-I001');
+UPDATE biz.interfaces SET target_table = 'lab_request_items' WHERE interface_id IN ('LAB-DEMO-MD-O002', 'LAB-DEMO-MD-I002');
+UPDATE biz.interfaces SET target_table = 'lab_test_items'    WHERE interface_id IN ('LAB-DEMO-MD-O003', 'LAB-DEMO-MD-I003');
+UPDATE biz.interfaces SET target_table = 'lab_bio_items'     WHERE interface_id IN ('LAB-DEMO-MD-O004', 'LAB-DEMO-MD-I004');
+UPDATE biz.interfaces SET target_table = 'lab_anti_items'    WHERE interface_id IN ('LAB-DEMO-MD-O005', 'LAB-DEMO-MD-I005');
 
 -- 标本（指向 L2 标本级）
-UPDATE biz.interfaces SET target_table = 'lab_specimen_items' WHERE interface_id IN ('LAB-NX-SP-I001', 'LAB-NX-RC-O001', 'LAB-NX-RC-O002', 'LAB-NX-RC-I001', 'LAB-NX-RC-I002');
+UPDATE biz.interfaces SET target_table = 'lab_specimen_items' WHERE interface_id IN ('LAB-DEMO-SP-I001', 'LAB-DEMO-RC-O001', 'LAB-DEMO-RC-O002', 'LAB-DEMO-RC-I001', 'LAB-DEMO-RC-I002');
 
 -- 报告
-UPDATE biz.interfaces SET target_table = 'lab_test_reports'   WHERE interface_id IN ('LAB-NX-RP-O001', 'LAB-NX-RP-I001', 'LAB-NX-RP-I003', 'LAB-NX-RP-O003', 'LAB-NX-RP-I004');
-UPDATE biz.interfaces SET target_table = 'lab_report_images'  WHERE interface_id IN ('LAB-NX-RP-O002', 'LAB-NX-RP-I002');
+UPDATE biz.interfaces SET target_table = 'lab_test_reports'   WHERE interface_id IN ('LAB-DEMO-RP-O001', 'LAB-DEMO-RP-I001', 'LAB-DEMO-RP-I003', 'LAB-DEMO-RP-O003', 'LAB-DEMO-RP-I004');
+UPDATE biz.interfaces SET target_table = 'lab_report_images'  WHERE interface_id IN ('LAB-DEMO-RP-O002', 'LAB-DEMO-RP-I002');
 
 -- 危急值
-UPDATE biz.interfaces SET target_table = 'lab_sample_warnings' WHERE interface_id LIKE 'LAB-NX-CV-%';
+UPDATE biz.interfaces SET target_table = 'lab_sample_warnings' WHERE interface_id LIKE 'LAB-DEMO-CV-%';
 
 -- 申请
-UPDATE biz.interfaces SET target_table = 'lab_applications'   WHERE interface_id LIKE 'LAB-NX-QR-%';
+UPDATE biz.interfaces SET target_table = 'lab_applications'   WHERE interface_id LIKE 'LAB-DEMO-QR-%';
 
 -- 质控/设备
-UPDATE biz.interfaces SET target_table = 'lab_qc_data'        WHERE interface_id LIKE 'LAB-NX-QC-%';
-UPDATE biz.interfaces SET target_table = 'lab_device_info'    WHERE interface_id LIKE 'LAB-NX-EQ-%';
+UPDATE biz.interfaces SET target_table = 'lab_qc_data'        WHERE interface_id LIKE 'LAB-DEMO-QC-%';
+UPDATE biz.interfaces SET target_table = 'lab_device_info'    WHERE interface_id LIKE 'LAB-DEMO-EQ-%';
 
 -- 复杂写入接口改走 RPC（清空 target_table）
 UPDATE biz.interfaces SET target_table = NULL, target_op = NULL
 WHERE interface_id IN (
-  'LAB-NX-SP-I001',   -- 标本送检 (L1+L2+L3)
-  'LAB-NX-RP-O001',   -- 报告上传 (1+4 主子表)
-  'LAB-NX-CV-O001',   -- 危急值上传 (1+1 主子表)
-  'LAB-NX-QR-I002'    -- 申请提交 (1+1 主子表)
+  'LAB-DEMO-SP-I001',   -- 标本送检 (L1+L2+L3)
+  'LAB-DEMO-RP-O001',   -- 报告上传 (1+4 主子表)
+  'LAB-DEMO-CV-O001',   -- 危急值上传 (1+1 主子表)
+  'LAB-DEMO-QR-I002'    -- 申请提交 (1+1 主子表)
 );
 
 -- Cleanup

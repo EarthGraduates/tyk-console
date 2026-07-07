@@ -1,141 +1,187 @@
-# ichse Asset Share Center
+# Tyk Console
 
-Tyk Gateway OSS 管理界面 — 医疗行业 API 网关资产共享中心
+**A management console for Tyk Gateway OSS** — persistent storage, self-managed state, China Cybersecurity Level-3 compliance, and healthcare data exchange built-in.
 
-| 版本 | 品牌色 | 框架 |
-|------|--------|------|
-| V1.3 | 极光绿 `#52c41a` | Refine v6 + Ant Design v6.4 + React 19 |
+**Tyk Gateway OSS 管理控制台** — 弥补社区版缺少持久化存储与自管状态的短板，内置等保三级安全合规与医疗数据共享能力。
 
 ---
 
-## 技术栈
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-v0.9.0-informational)](#)
 
-| 组件 | 版本 | 用途 |
-|------|------|------|
-| Refine (antd) | v6.0 | 前端框架（Data Provider + Auth Provider） |
-| Refine (core) | v5.0 | 核心状态管理 |
-| Ant Design | v6.4 | UI 组件库 |
-| React | v19.1 | 前端运行时 |
-| TypeScript | v5.8 | 类型系统 |
-| Vite | v6.3 | 构建工具 |
-| Tyk Gateway OSS | v5.12 | API 网关（被管理对象） |
-| PostgreSQL | v17.10 | 管理数据库 |
-| PostgREST | v14.11 | DB → REST API 桥接 |
-| Docker (Colima) | — | 容器运行时 |
+> ⚠️ **This project is under active development (v0.9.0).** Not yet recommended for production use.
+> ⚠️ **UI is currently Chinese-only.** i18n support is tracked as a [good first issue](https://github.com/EarthGraduates/tyk-console/issues).
 
 ---
 
-## 功能模块
+## Screenshots
 
-| 模块 | 功能 |
-|------|------|
-| 仪表板 | 网关状态 / API 运行状态（分页+搜索+排序） / 一键重载 |
-| 服务管理 | API 完整 CRUD / Drawer 详情 / 克隆 / 搜索+分页 |
-| 密钥管理 | 创建/编辑/删除 / 速率+配额+过期配置 / 搜索+分页 |
-| 认证 & 用户 | JWT 登录 / 角色菜单 / 路由守卫 / 用户管理（CRUD） |
-| 审计日志 | 操作审计 / 时间范围查询 / 按用户/模块筛选 |
-| 安全策略 | 密码策略配置 / 会话超时配置 / 持久化存储 |
-| 历史记录 | API 记录归档 / DB 优先架构 / 删除/停用/启用/同步 |
-| 网关管理 | 容器状态监控 / 启停/重启控制 |
-| 设置 | Tyk Gateway 连接参数 / Docker 管理服务地址 |
+<!-- TODO: add 4-5 screenshots of Dashboard, API Management, Key Management, and Interfaces pages -->
+
+*Coming soon.*
 
 ---
 
-## 架构
+## Why Tyk Console?
+
+Tyk Gateway OSS is a powerful API gateway, but its community edition has notable gaps:
+
+| Limitation | How Tyk Console solves it |
+|------------|---------------------------|
+| **No persistent storage** — API definitions live only in Redis | PostgreSQL as source of truth; all API/Key definitions survive restarts |
+| **No built-in RBAC** — single admin user | Three-role separation (system admin / security admin / audit admin), JWT auth, row-level security |
+| **No audit trail** — who changed what and when? | Full operation audit logging with HMAC integrity verification |
+| **No security compliance** | Implements China Cybersecurity Level-3 (等保 2.0 三级) requirements out of the box |
+| **No API lifecycle management** | Activate / deactivate / archive / re-sync APIs with a click |
+| **No healthcare-specific tooling** | Built-in validation engine, 5 medical business domains (LAB/IMG/PATH/ECG/CSSD), interface contract management |
+
+---
+
+## Features
+
+### Gateway Management
+- **API Definitions** — Full CRUD, batch operations (activate/deactivate/delete), one-click register from interface catalog, sync status tracking
+- **Key Management** — Create/edit/revoke keys, rate limits, quotas, expiry, per-API access rights
+- **Gateway Monitor** — Container health, start/stop/restart, hot reload
+
+### Security & Compliance (等保 2.0 三级)
+- **Three-Role Separation** (三员分立) — System Admin / Security Admin / Audit Admin
+- **Row-Level Security** — PostgREST + PostgreSQL RLS enforces data isolation
+- **Audit Logging** — HMAC-signed immutable audit trail, searchable by user/module/time range
+- **Password Policy** — Configurable complexity, expiration, and session timeout
+
+### Healthcare Data Exchange
+- **5 Business Domains** — Laboratory (LAB), Medical Imaging (IMG), Pathology (PATH), ECG, Central Sterile Supply (CSSD)
+- **Validation Engine** — Chain-of-responsibility: Regex → Domain → Cross-Field validation
+- **Interface Contract Management** — Interface ID catalog (`LAB-DEMO-MD-O001`), field-level metadata, test data generation
+
+### Developer Experience
+- **PostgREST Bridge** — Auto-generated REST APIs from PostgreSQL schemas
+- **One-command Start** — `docker compose up` spins up the entire stack
+- **Test Data Generator** — Python scripts for full-column test coverage across 22 lab tables
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Docker & Docker Compose
+- Node.js 20+
+- Tyk Gateway OSS (v5.12+)
+
+### 1. Clone & Configure
+
+```bash
+git clone https://github.com/EarthGraduates/tyk-console.git
+cd tyk-console
+cp .env.example .env
+# Edit .env with your settings (defaults work for local dev)
+```
+
+### 2. Start Infrastructure
+
+```bash
+# PostgreSQL + PostgREST + Redis
+docker compose up -d
+```
+
+### 3. Start Frontend
+
+```bash
+npm install
+npm run dev          # → http://localhost:5173
+```
+
+### 4. Default Accounts
+
+| Email | Password | Role |
+|-------|----------|------|
+| `dev_admin@ichse.local` | `Test1234!` | System Admin |
+| `dev_sec@ichse.local` | `Test1234!` | Security Admin |
+| `dev_audit@ichse.local` | `Test1234!` | Audit Admin |
+
+> ⚠️ **Development defaults only.** Change passwords immediately for any non-local deployment.
+
+---
+
+## Architecture
 
 ```
-浏览器 (localhost:5173)
-  ├── /tyk/* → Tyk Gateway (localhost:8080)       ← API/密钥 CRUD
-  ├── /hello → Tyk Gateway                         ← 健康检查
-  └── /db/*  → PostgREST (localhost:3001)          ← 管理数据库
+Browser (localhost:5173)
+  ├── /tyk/*  → Tyk Gateway (localhost:8080)     ← API/Key CRUD
+  ├── /hello  → Tyk Gateway                      ← Health check
+  └── /db/*   → PostgREST (localhost:3001)       ← Database REST API
                    └── PostgreSQL (localhost:5433)
+
+               ┌──────────────────────────────────┐
+               │         Tyk Gateway (:8080)       │
+               │   API routing, keyless passthrough│
+               └──────────────┬───────────────────┘
+                              │
+               ┌──────────────▼───────────────────┐
+               │   Python FastAPI Services (:8000) │
+               │   Validation Engine + Router      │
+               └──────┬────────────┬─────────────┘
+                      │            │
+       ┌──────────────▼──┐  ┌──────▼──────────────┐
+       │ PostgREST (:3001)│  │ PG Functions (ichse)│
+       │ Table CRUD       │  │ Complex transactions│
+       └────────┬─────────┘  └──────┬──────────────┘
+                │                   │
+       ┌────────▼───────────────────▼──────────┐
+       │         PostgreSQL (:5433)             │
+       │  ┌──────────┐  ┌────────────────────┐  │
+       │  │ ichse    │  │ biz                 │  │
+       │  │ 管理数据  │  │ 业务数据 (lab/img/…) │  │
+       │  └──────────┘  └────────────────────┘  │
+       └────────────────────────────────────────┘
+       ┌──────────┐
+       │ Redis    │  Rule cache + log queue
+       └──────────┘
 ```
 
 ---
 
-## 环境启动
+## Tech Stack
 
-```bash
-# 1. 启动 Docker
-colima start
-
-# 2. Tyk Gateway（需 enable_health_checks: true）
-docker-compose -f ~/Hermes/git-tyk/tyk-gateway-docker/docker-compose.yml up -d
-
-# 3. 管理数据库
-docker-compose -f docker-compose.yml up -d
-
-# 4. 首次建表
-cat database/postgresql/schema.sql | docker exec -i ichse-postgres psql -U ichse -d ichse
-
-# 5. 启动前端
-npm run dev                    # → http://localhost:5173
-```
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| Refine + Ant Design | v6 | Frontend framework (Data + Auth providers) |
+| React | v19 | UI runtime |
+| TypeScript | v5.8 | Type system |
+| Vite | v6.3 | Build tool |
+| Tyk Gateway OSS | v5.12 | API Gateway (managed target) |
+| PostgreSQL | v17 | Source of truth |
+| PostgREST | v14 | DB → REST API bridge |
+| Redis | v7 | Rule cache + async log queue |
+| Python FastAPI | — | Validation engine services |
+| Docker Compose | — | Local dev environment |
 
 ---
 
-## 代码审查
+## Documentation
 
-```bash
-npx eslint src/                # 阿里前端规约
-npx eslint src/ --fix
-```
-
----
-
-## 项目文档
-
-| 文件 | 内容 |
-|------|------|
-| `design/database-design.md` | 数据库设计 v1.4 |
-| `design/antd-spec-summary.md` | antd 设计规范分析 |
-| `design/antd-color-palette.md` | 官方色板参考 |
-| `dev-logs/v1.1-index.md` | 项目索引 + 变更记录 |
-| `dev-logs/2026-05-20-summary.md` | 每日开发总结 |
+| Document | Description |
+|----------|-------------|
+| [CONTEXT.md](CONTEXT.md) | Domain glossary and terminology |
+| [docs/architecture.md](docs/architecture.md) | System architecture overview |
+| [docs/conventions.md](docs/conventions.md) | Coding conventions (naming, DB schema, API registration) |
+| [docs/security.md](docs/security.md) | Security compliance design (等保 2.0 三级) |
+| [docs/adr/](docs/adr/) | Architectural Decision Records |
 
 ---
 
-## 更新日志
+## Contributing
 
-### V1.3 — Phase 3 安全配置与迁移 (2026-05-25)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, commit conventions, and PR guidelines.
 
-- **安全配置持久化**: 密码策略、会话超时配置写入 DB，支持 CRUD
-- **会话管理**: 基于配置的会话超时自动踢出
-- **antd v6 迁移**: `destroyOnClose`→`destroyOnHidden`, `valueStyle`→`styles.content`, `Drawer width`→`size`
-- **审计日志修复**: 时间范围查询改用 PostgREST `and` 逻辑组语法
+We follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat` / `fix` / `docs` / `chore`).
 
-### V1.2 — Phase 2 RBAC (2026-05-23)
-
-- **JWT 认证系统**: 从 Supabase 迁移到 pgjwt + PostgREST RLS，自建完整鉴权链路
-- **角色菜单**: 基于用户 role 动态渲染侧边栏
-- **路由守卫**: 无权限页面前端拦截 + 后端 RLS 兜底
-- **用户管理**: 完整 CRUD，含角色分配、JWT 生成
-- **审计日志**: 操作审计记录，时间范围查询
-- **部署文档**: 生产环境部署指南
-
-### V1.1 — 数据持久化 + 规范完善 (2026-05-16 ~ 2026-05-20)
-
-- **PostgreSQL + PostgREST**: 本地 PG 替代 Supabase，4 张表（users/api_definitions/api_definition_log/api_keys）
-- **历史 API 记录**: API 归档页，DB 优先架构，删除/停用/启用/同步联动
-- **极光绿品牌色**: 全面替换 `#52c41a`，浅色一体主题
-- **antd 设计规范**: 表格搜索+分页+校验+placeholder 全面补全
-- **API Drawer 详情**: 替代独立路由跳转，暗色代码主题 JSON 展示
-- **dashboard**: 懒加载健康状态、分页、搜索、排序
-- **阿里 ESLint 规约**: `eslint-config-ali` 接入，全量 JSDoc 注释
-- **密钥增强**: 授权 API 列、`enable_hashed_keys_listing` 适配、404 降级
-
-### V1.0 — 核心 CRUD (2026-05-13 ~ 2026-05-15)
-
-- 仪表板：网关状态、API 健康、一键重载
-- 服务管理：API 完整 CRUD、Modal 创建/编辑、搜索分页
-- 密钥管理：创建/编辑/删除、速率+配额+过期配置
-- Vite Proxy：开发环境 CORS 解决方案
-- Data Provider：Tyk API 适配、内置默认 Secret
-- 双模型设计评审：独立评审 + 汇总报告，P0/P1 问题修复
-- 架构决策：前端直调 Tyk API（取消后端代理）、Docker 管理 dockerode thin service
+> **UI is currently Chinese-only.** We welcome contributions for i18n internationalization!
 
 ---
 
 ## License
 
-MIT
+[Apache 2.0](LICENSE) © 2026 EarthGraduates

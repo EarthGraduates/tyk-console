@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_lab_reports_col_org ON biz.lab_test_reports(col_o
 -- ============================================================
 
 -- 2a. P02: submit application — write collecting org
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qr_p02_submit_application(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qr_p02_submit_application(payload json)
 RETURNS json AS $$
 DECLARE
   v_id int;
@@ -69,7 +69,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2b. P01: get application list — output collecting org
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qr_p01_get_application_list(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qr_p01_get_application_list(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -106,7 +106,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2c. E01: submit report — write collecting org
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e01_submit_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e01_submit_report(payload json)
 RETURNS json AS $$
 DECLARE
   v_id int;
@@ -179,7 +179,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2d. E03: get report — output collecting org
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e03_get_lab_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e03_get_lab_report(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN

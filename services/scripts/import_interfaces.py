@@ -1,6 +1,6 @@
 """
 SQLite → PG: 导入 36 个接口定义 + 参数字段
-v2.0: interface_id 使用 LAB-NX-* 格式，biz_domain = 'LAB'
+v2.0: interface_id 使用 LAB-DEMO-* 格式，biz_domain = 'LAB'
 """
 import sqlite3
 import re
@@ -8,11 +8,9 @@ import asyncio
 import asyncpg
 import os
 
-SQLITE_PATH = os.path.expanduser(
-    "/Users/phoenix/文库/D盘/2026-工作/20260604-南雄-检验中心-菜单及页面/检验中心接口.db"
-)
-PG_DSN = "postgresql://ichse:ichse_dev@localhost:5433/ichse"
-PLATFORM = "NX"
+SQLITE_PATH = os.getenv("SQLITE_SOURCE_PATH", "")
+PG_DSN = os.getenv("PG_DSN", "postgresql://ichse:change_me@localhost:5433/ichse")
+PLATFORM = os.getenv("PLATFORM_CODE", "DEMO")
 BIZ_DOMAIN = "LAB"
 
 CATEGORY_MAP = {
@@ -27,8 +25,8 @@ CATEGORY_MAP = {
 }
 
 DATA_FLOW_MAP = {
-    "临检中心方": "O",
-    "送检方": "I",
+    "Lab Center": "O",
+    "Requester": "I",
     "平台监管": "O",
 }
 
@@ -53,9 +51,9 @@ def build_interface_id(cat_code: str, data_flow: str, seq: int) -> str:
 
 
 def build_func_name(cat_code: str, biz_id: str, op_name: str) -> str:
-    """Build func_name: lab_nx_{cat_code}_{biz_id}_{op_name}"""
+    """Build func_name: lab_demo_{cat_code}_{biz_id}_{op_name}"""
     biz_id_lower = biz_id.lower() if biz_id else ''
-    return f"lab_nx_{cat_code.lower()}_{biz_id_lower}_{op_name}"
+    return f"lab_demo_{cat_code.lower()}_{biz_id_lower}_{op_name}"
 
 
 async def main():
@@ -82,7 +80,7 @@ async def main():
 
         op_name = url_to_func_name(row['url']) if row['url'] else ''
         biz_id_lower = row['biz_id'].lower() if row['biz_id'] else ''
-        func_name = f"lab_nx_{cat_code.lower()}_{biz_id_lower}_{op_name}"
+        func_name = f"lab_demo_{cat_code.lower()}_{biz_id_lower}_{op_name}"
 
         await pg.execute(
             """

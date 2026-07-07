@@ -17,8 +17,8 @@
 --   biz.device_info     → biz.lab_device_info
 --   biz.applications    → biz.lab_applications
 --
--- Adds biz.interfaces.biz_domain, updates interface_id (NX-* → LAB-NX-*)
--- Renames all PG functions: nx_* → lab_nx_*
+-- Adds biz.interfaces.biz_domain, updates interface_id (NX-* → LAB-DEMO-*)
+-- Renames all PG functions: nx_* → lab_demo_*
 -- Recreates PostgREST views as ichse.lab_*
 -- ============================================================
 
@@ -31,11 +31,11 @@ ALTER TABLE biz.interfaces ADD COLUMN IF NOT EXISTS biz_domain text;
 UPDATE biz.interfaces SET biz_domain = 'LAB' WHERE biz_domain IS NULL;
 ALTER TABLE biz.interfaces ALTER COLUMN biz_domain SET NOT NULL;
 
--- Update interface_id: NX-* → LAB-NX-*
+-- Update interface_id: NX-* → LAB-DEMO-*
 UPDATE biz.interfaces SET interface_id = 'LAB-' || interface_id
 WHERE interface_id NOT LIKE 'LAB-%';
 
--- Update func_name: nx_* → lab_nx_*
+-- Update func_name: nx_* → lab_demo_*
 UPDATE biz.interfaces SET func_name = 'lab_' || func_name
 WHERE func_name LIKE 'nx_%' AND func_name NOT LIKE 'lab_%';
 
@@ -105,7 +105,7 @@ ALTER INDEX IF EXISTS idx_specimens_barcode RENAME TO idx_lab_specimens_barcode;
 ALTER TABLE biz.lab_sample_types RENAME CONSTRAINT uq_sample_types TO uq_lab_sample_types;
 
 -- ============================================================
--- Phase 4: Rename PG functions (nx_* → lab_nx_*)
+-- Phase 4: Rename PG functions (nx_* → lab_demo_*)
 -- ============================================================
 DO $$
 DECLARE
@@ -123,7 +123,7 @@ BEGIN
 END $$;
 
 -- Update the one non-stub function that references biz.sample_types
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a07_get_sample_type(json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a07_get_sample_type(json)
 RETURNS json AS $$
 DECLARE
   v_center_org text;

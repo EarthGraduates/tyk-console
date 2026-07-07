@@ -160,7 +160,7 @@ export interface LabApplicationItem {
 
 export const labApplicationDb = {
   async list(params?: { org_sending?: string; status?: string; doctAdviseNo?: string; startDate?: string; endDate?: string }) {
-    return await labRpc('lab_nx_qr_p01_get_application_list', {
+    return await labRpc('lab_demo_qr_p01_get_application_list', {
       sendingOrg: params?.org_sending ?? null,
       status: params?.status ?? null,
       doctAdviseNo: params?.doctAdviseNo ?? null,
@@ -170,7 +170,7 @@ export const labApplicationDb = {
   },
 
   async submit(payload: Record<string, unknown>) {
-    return await labRpc('lab_nx_qr_p02_submit_application', payload);
+    return await labRpc('lab_demo_qr_p02_submit_application', payload);
   },
 };
 
@@ -179,22 +179,22 @@ export const labApplicationDb = {
 export const labSpecimenDb = {
   /** D01: 根据条码获取标本详情 */
   async getByBarcode(doctAdviseNo: string) {
-    return await labRpc('lab_nx_rc_d01_get_doct_advise_by_barcode', { doctAdviseNo });
+    return await labRpc('lab_demo_rc_d01_get_doct_advise_by_barcode', { doctAdviseNo });
   },
 
   /** D02: 标本接收登记 */
   async receive(payload: Record<string, unknown>) {
-    return await labRpc('lab_nx_rc_d02_receive_specimen', payload);
+    return await labRpc('lab_demo_rc_d02_receive_specimen', payload);
   },
 
   /** D03: 接收状态查询 */
   async getReceiveStatus(params: Record<string, unknown>) {
-    return await labRpc('lab_nx_rc_d03_get_receive_sample_status', params);
+    return await labRpc('lab_demo_rc_d03_get_receive_sample_status', params);
   },
 
   /** D04: 不合格标本查询 */
   async getRejected(params: Record<string, unknown>) {
-    return await labRpc('lab_nx_rc_d04_get_sample_back', params);
+    return await labRpc('lab_demo_rc_d04_get_sample_back', params);
   },
 };
 
@@ -203,37 +203,37 @@ export const labSpecimenDb = {
 export const labReportDb = {
   /** E01: 上传报告 */
   async submit(payload: Record<string, unknown>) {
-    return await labRpc('lab_nx_rp_e01_submit_report', payload);
+    return await labRpc('lab_demo_rp_e01_submit_report', payload);
   },
 
   /** E03: 查询报告 */
   async getByBarcode(doctAdviseNo: string) {
-    return await labRpc('lab_nx_rp_e03_get_lab_report', { doctAdviseNo });
+    return await labRpc('lab_demo_rp_e03_get_lab_report', { doctAdviseNo });
   },
 
   /** E08: 撤销报告 */
   async cancel(payload: Record<string, unknown>) {
-    return await labRpc('lab_nx_rp_e08_cancel_check_for_report', payload);
+    return await labRpc('lab_demo_rp_e08_cancel_check_for_report', payload);
   },
 
   /** E09: 查询已撤销报告 */
   async getCanceled(params: Record<string, unknown>) {
-    return await labRpc('lab_nx_rp_e09_get_cancel_check_report', params);
+    return await labRpc('lab_demo_rp_e09_get_cancel_check_report', params);
   },
 
   /** E10: 一审 */
   async submitFirstReview(payload: Record<string, unknown>) {
-    return await labRpc('lab_nx_rp_e10_submit_first_review', payload);
+    return await labRpc('lab_demo_rp_e10_submit_first_review', payload);
   },
 
   /** E11: 二审 */
   async submitSecondReview(payload: Record<string, unknown>) {
-    return await labRpc('lab_nx_rp_e11_submit_second_review', payload);
+    return await labRpc('lab_demo_rp_e11_submit_second_review', payload);
   },
 
   /** E12: 待审核队列 */
   async getPendingReviews(params: { reviewStage: string; labOrg?: string; startDate?: string; endDate?: string }) {
-    return await labRpc('lab_nx_rp_e12_get_pending_reviews', {
+    return await labRpc('lab_demo_rp_e12_get_pending_reviews', {
       reviewStage: params.reviewStage,
       labOrg: params.labOrg ?? null,
       startDate: params.startDate ?? null,
@@ -243,7 +243,7 @@ export const labReportDb = {
 
   /** E13: 审核日志 */
   async getReviewLogs(reportId: string) {
-    return await labRpc('lab_nx_rp_e13_get_review_logs', { reportId });
+    return await labRpc('lab_demo_rp_e13_get_review_logs', { reportId });
   },
 };
 
@@ -251,10 +251,10 @@ export const labReportDb = {
 
 export const labCriticalValueDb = {
   async list(params: Record<string, unknown>) {
-    return await labRpc('lab_nx_cv_f02_get_sample_warn', params);
+    return await labRpc('lab_demo_cv_f02_get_sample_warn', params);
   },
   async updateFeedback(payload: Record<string, unknown>) {
-    return await labRpc('lab_nx_cv_f03_update_warn_feedback', payload);
+    return await labRpc('lab_demo_cv_f03_update_warn_feedback', payload);
   },
 };
 

@@ -1,13 +1,19 @@
-# 等保 2.0 三级安全合规设计文档
+# Security Compliance Design — China Cybersecurity Level-3 Protection (等保 2.0 三级)
 
-**项目**: ichse-asset-share-center（Tyk API 网关资产管理共享中心）
-**合规标准**: GB/T 22239-2019《信息安全技术 网络安全等级保护基本要求》三级
-**行业补充**: GB/T 39725-2020《健康医疗数据安全指南》、《医疗卫生机构网络安全管理办法》（国卫规划发〔2022〕29 号）
-**版本**: v1.0 / 2026-05-22
+> **English abstract:** This document describes the security architecture of Tyk Console, designed to comply with GB/T 22239-2019 Level-3 (China's Cybersecurity Multi-Level Protection Scheme, also known as "等保 2.0 三级"). It covers identity authentication, access control (three-role separation / 三员分立), security auditing with HMAC integrity, mandatory access control (MAC) with 4 security levels, and healthcare data protection per GB/T 39725-2020. The implementation leverages PostgreSQL Row-Level Security (RLS), column-level views, pgjwt for JWT authentication, pgcrypto for bcrypt password hashing, and an append-only audit log table.
+>
+> **本文档描述 Tyk Console 的安全架构设计，符合 GB/T 22239-2019 三级标准（等保 2.0 三级）。**
 
 ---
 
-## 总体架构
+**Project**: Tyk Console (tyk-console)
+**Standard**: GB/T 22239-2019 — Information Security Technology — Baseline for Classified Protection of Cybersecurity (Level 3)
+**Industry Supplement**: GB/T 39725-2020 — Health and Medical Data Security Guidelines
+**Version**: v2.0 / 2026-07-07
+
+---
+
+## Overall Architecture / 总体架构
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -38,7 +44,7 @@
 
 ---
 
-## 一、8.1.3 安全区域边界
+## 1. Network Perimeter Security / 8.1.3 安全区域边界
 
 ### 8.1.3.2 访问控制（网络层权限）
 
@@ -63,7 +69,7 @@
 
 ---
 
-## 二、8.1.4 安全计算环境（核心）
+## 2. Secure Computing Environment / 8.1.4 安全计算环境 (Core)
 
 ### 8.1.4.2 访问控制（系统/应用层权限）
 
@@ -260,7 +266,7 @@ USING (ichse.is_role('audit_admin'));
 
 ---
 
-## 三、8.1.5 安全管理中心
+## 3. Security Management Center / 8.1.5 安全管理中心
 
 ### 8.1.5.1 系统管理
 
@@ -303,7 +309,7 @@ USING (ichse.is_role('audit_admin'));
 
 ---
 
-## 四、8.1.7 安全管理人员
+## 4. Security Personnel Management / 8.1.7 安全管理人员
 
 ### 8.1.7.2 人员配备
 
@@ -314,7 +320,7 @@ USING (ichse.is_role('audit_admin'));
 
 ---
 
-## 五、8.1.10 安全运维管理
+## 5. Security Operations / 8.1.10 安全运维管理
 
 ### 8.1.10.6 网络和系统安全管理
 
@@ -328,7 +334,7 @@ USING (ichse.is_role('audit_admin'));
 
 ---
 
-## 六、认证机制设计
+## 6. Authentication Mechanism / 认证机制设计
 
 ### JWT 认证流程
 
@@ -365,7 +371,7 @@ USING (ichse.is_role('audit_admin'));
 
 ---
 
-## 七、医疗行业补充合规
+## 7. Healthcare Industry Compliance / 医疗行业补充合规
 
 ### GB/T 39725-2020《健康医疗数据安全指南》
 
@@ -378,7 +384,7 @@ USING (ichse.is_role('audit_admin'));
 
 ---
 
-## 八、技术实现清单
+## 8. Technical Implementation / 技术实现清单
 
 ### 数据库对象
 
@@ -430,7 +436,7 @@ USING (ichse.is_role('audit_admin'));
 
 ---
 
-## 九、验证命令
+## 9. Verification Commands / 验证命令
 
 ```bash
 # 测试各角色登录
@@ -444,7 +450,7 @@ curl -s -o /dev/null -w "HTTP %{http_code}" -H "$header" \
   http://localhost:3001/api_definitions
 ```
 
-## 测试账号
+## Test Accounts / 测试账号
 
 | 角色 | 邮箱 | 密码 | 安全等级 |
 |------|------|------|---------|

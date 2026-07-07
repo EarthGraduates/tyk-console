@@ -11,7 +11,7 @@
 -- 1. 字典上传 (MD-O001..O005)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a01_upload_sample_type(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a01_upload_sample_type(payload json)
 RETURNS json AS $$
 DECLARE r jsonb;
 BEGIN
@@ -29,7 +29,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a02_upload_request_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a02_upload_request_item(payload json)
 RETURNS json AS $$
 DECLARE r jsonb;
 BEGIN
@@ -47,7 +47,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a03_upload_test_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a03_upload_test_item(payload json)
 RETURNS json AS $$
 DECLARE r jsonb;
 BEGIN
@@ -63,7 +63,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a04_upload_bio_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a04_upload_bio_item(payload json)
 RETURNS json AS $$
 DECLARE r jsonb;
 BEGIN
@@ -79,7 +79,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a05_upload_anti_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a05_upload_anti_item(payload json)
 RETURNS json AS $$
 DECLARE r jsonb;
 BEGIN
@@ -99,12 +99,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 2. 字典下载 (MD-I001..I005)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a07_get_sample_type(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a07_get_sample_type(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
   IF payload->>'centerOrg' IS NULL OR payload->>'centerOrg' = '' THEN
-    RETURN jsonb_build_object('code', 400, 'message', 'centerOrg 不能为空');
+    RETURN jsonb_build_object('code', 400, 'message', 'centerOrg is required');
   END IF;
   SELECT jsonb_build_object('code', 200, 'message', 'success',
     'dataInfoList', COALESCE(jsonb_agg(
@@ -118,7 +118,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a08_get_request_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a08_get_request_item(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -135,7 +135,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a09_get_test_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a09_get_test_item(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -152,7 +152,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a10_get_bio_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a10_get_bio_item(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -169,7 +169,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_md_a11_get_anti_item(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_md_a11_get_anti_item(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -190,7 +190,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 3. 标本 (SP / RC)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_sp_b02_external_specimen(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_sp_b02_external_specimen(payload json)
 RETURNS json AS $$
 DECLARE
   v_spec_id int;
@@ -243,7 +243,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rc_d01_get_doct_advise_by_barcode(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rc_d01_get_doct_advise_by_barcode(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -276,7 +276,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rc_d02_receive_specimen(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rc_d02_receive_specimen(payload json)
 RETURNS json AS $$
 BEGIN
   UPDATE biz.lab_specimen_items SET
@@ -290,7 +290,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rc_d03_get_receive_sample_status(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rc_d03_get_receive_sample_status(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -311,7 +311,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rc_d04_get_sample_back(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rc_d04_get_sample_back(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -336,7 +336,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 4. 检验报告 (RP)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e01_submit_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e01_submit_report(payload json)
 RETURNS json AS $$
 DECLARE
   v_id int;
@@ -406,7 +406,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e02_upload_image_info(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e02_upload_image_info(payload json)
 RETURNS json AS $$
 DECLARE
   v_report_int_id int;
@@ -431,7 +431,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e03_get_lab_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e03_get_lab_report(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -495,7 +495,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e04_get_image_info(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e04_get_image_info(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -510,7 +510,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e05_upload_lab_report_flag(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e05_upload_lab_report_flag(payload json)
 RETURNS json AS $$
 BEGIN
   UPDATE biz.lab_test_reports SET rpt_url = payload->>'labReportUrl', updated_at = now()
@@ -519,7 +519,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e08_cancel_check_for_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e08_cancel_check_for_report(payload json)
 RETURNS json AS $$
 BEGIN
   UPDATE biz.lab_test_reports SET
@@ -533,7 +533,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e09_get_cancel_check_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e09_get_cancel_check_report(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -557,7 +557,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 5. 危急值 (CV)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_cv_f01_upload_sample_warn(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_cv_f01_upload_sample_warn(payload json)
 RETURNS json AS $$
 DECLARE
   v_id int;
@@ -585,7 +585,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_cv_f02_get_sample_warn(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_cv_f02_get_sample_warn(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -614,7 +614,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_cv_f03_update_warn_feedback(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_cv_f03_update_warn_feedback(payload json)
 RETURNS json AS $$
 BEGIN
   UPDATE biz.lab_warn_log_items SET
@@ -625,7 +625,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_cv_f04_get_sample_warn_feedback(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_cv_f04_get_sample_warn_feedback(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -646,7 +646,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 6. 质控 (QC)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h01_upload_query_qc(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qc_h01_upload_query_qc(payload json)
 RETURNS json AS $$
 BEGIN
   INSERT INTO biz.lab_qc_data (org_lab, qc_type, qc_date, instrument_code, test_item_code, qc_value, qc_target, qc_sd)
@@ -657,11 +657,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h02_upload_query_qc(payload json)
-RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_qc_h01_upload_query_qc(payload); END;
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qc_h02_upload_query_qc(payload json)
+RETURNS json AS $$ BEGIN RETURN ichse.lab_demo_qc_h01_upload_query_qc(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h03_get_qc_data(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qc_h03_get_qc_data(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -672,19 +672,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h04_get_qc_out_of_control_stats(payload json)
-RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_qc_h03_get_qc_data(payload); END;
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qc_h04_get_qc_out_of_control_stats(payload json)
+RETURNS json AS $$ BEGIN RETURN ichse.lab_demo_qc_h03_get_qc_data(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qc_h05_get_eqa_results(payload json)
-RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_qc_h03_get_qc_data(payload); END;
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qc_h05_get_eqa_results(payload json)
+RETURNS json AS $$ BEGIN RETURN ichse.lab_demo_qc_h03_get_qc_data(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
 -- 7. 设备 (EQ)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_eq_i01_upload_device_info(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_eq_i01_upload_device_info(payload json)
 RETURNS json AS $$
 BEGIN
   INSERT INTO biz.lab_device_info (org_lab, device_code, device_name, model, sn, manufacturer)
@@ -697,11 +697,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_eq_i02_upload_device_info(payload json)
-RETURNS json AS $$ BEGIN RETURN ichse.lab_nx_eq_i01_upload_device_info(payload); END;
+CREATE OR REPLACE FUNCTION ichse.lab_demo_eq_i02_upload_device_info(payload json)
+RETURNS json AS $$ BEGIN RETURN ichse.lab_demo_eq_i01_upload_device_info(payload); END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_eq_i03_get_device_info(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_eq_i03_get_device_info(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -716,7 +716,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 8. 申请 (QR)
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qr_p01_get_application_list(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qr_p01_get_application_list(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -751,7 +751,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION ichse.lab_nx_qr_p02_submit_application(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_qr_p02_submit_application(payload json)
 RETURNS json AS $$
 DECLARE
   v_id int;

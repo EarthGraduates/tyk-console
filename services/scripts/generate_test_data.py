@@ -6,17 +6,17 @@ Usage:
   cd services && source venv/bin/activate
   python scripts/generate_test_data.py
 """
-import asyncio, asyncpg, httpx, random, string, json
+import asyncio, asyncpg, httpx, os, random, string, json
 from datetime import datetime, timedelta
 from collections import defaultdict
 
-PG = "postgresql://ichse:ichse_dev@localhost:5433/ichse"
-BASE = "http://localhost:8080/api/ygt/mdrs/v1/lis-center"
+PG = os.getenv("PG_DSN", "postgresql://ichse:change_me@localhost:5433/ichse")
+BASE = os.getenv("TYK_ORIGIN", "http://localhost:8080") + "/api/demo/mdrs/v1/lis-center"
 
 # ── Data pools ──────────────────────────────────────────────
 
 ORG_CODES  = ["ORG001", "ORG002", "ORG003"]
-LABS       = ["NXLAB01", "NXLAB02"]
+LABS       = ["DEMOLAB01", "DEMOLAB02"]
 DEPT_CODES = ["JYK", "SHK", "WSWS", "MYSH"]
 DEPT_NAMES = ["检验科", "生化室", "微生物室", "免疫室"]
 DOCTORS    = ["张建国", "李明华", "王秀英", "赵志强", "陈伟", "刘芳"]
@@ -530,49 +530,49 @@ def unqual_specimen_query():
 
 TEMPLATES = {
     # MD dictionary uploads
-    "LAB-NX-MD-O001": ("MD upload sample_types",      lambda: md_upload("sample_type", "sample_describe")),
-    "LAB-NX-MD-O002": ("MD upload request_items",     lambda: md_upload("item_code", "item_name")),
-    "LAB-NX-MD-O003": ("MD upload test_items",        lambda: md_upload("test_id", "test_name")),
-    "LAB-NX-MD-O004": ("MD upload bio_items",         lambda: md_upload("bio_id", "bio_name")),
-    "LAB-NX-MD-O005": ("MD upload anti_items",        lambda: md_upload("anti_id", "anti_name")),
+    "LAB-DEMO-MD-O001": ("MD upload sample_types",      lambda: md_upload("sample_type", "sample_describe")),
+    "LAB-DEMO-MD-O002": ("MD upload request_items",     lambda: md_upload("item_code", "item_name")),
+    "LAB-DEMO-MD-O003": ("MD upload test_items",        lambda: md_upload("test_id", "test_name")),
+    "LAB-DEMO-MD-O004": ("MD upload bio_items",         lambda: md_upload("bio_id", "bio_name")),
+    "LAB-DEMO-MD-O005": ("MD upload anti_items",        lambda: md_upload("anti_id", "anti_name")),
     # MD dictionary downloads
-    "LAB-NX-MD-I001": ("MD download sample_types",    md_download),
-    "LAB-NX-MD-I002": ("MD download request_items",   md_download),
-    "LAB-NX-MD-I003": ("MD download test_items",      md_download),
-    "LAB-NX-MD-I004": ("MD download bio_items",       md_download),
-    "LAB-NX-MD-I005": ("MD download anti_items",      md_download),
+    "LAB-DEMO-MD-I001": ("MD download sample_types",    md_download),
+    "LAB-DEMO-MD-I002": ("MD download request_items",   md_download),
+    "LAB-DEMO-MD-I003": ("MD download test_items",      md_download),
+    "LAB-DEMO-MD-I004": ("MD download bio_items",       md_download),
+    "LAB-DEMO-MD-I005": ("MD download anti_items",      md_download),
     # Specimen
-    "LAB-NX-SP-I001": ("SP specimen external",        specimen_upload),
-    "LAB-NX-RC-O001": ("RC get by barcode",           specimen_query),
-    "LAB-NX-RC-O002": ("RC receive specimen",         specimen_receive),
-    "LAB-NX-RC-I001": ("RC receive status",           specimen_status_query),
-    "LAB-NX-RC-I002": ("RC unqualified",              unqual_specimen_query),
+    "LAB-DEMO-SP-I001": ("SP specimen external",        specimen_upload),
+    "LAB-DEMO-RC-O001": ("RC get by barcode",           specimen_query),
+    "LAB-DEMO-RC-O002": ("RC receive specimen",         specimen_receive),
+    "LAB-DEMO-RC-I001": ("RC receive status",           specimen_status_query),
+    "LAB-DEMO-RC-I002": ("RC unqualified",              unqual_specimen_query),
     # Reports
-    "LAB-NX-RP-O001": ("RP submit report",            report_upload),
-    "LAB-NX-RP-O002": ("RP upload image",             image_upload),
-    "LAB-NX-RP-O003": ("RP cancel check",             cancel_report),
-    "LAB-NX-RP-I001": ("RP get report",               report_query),
-    "LAB-NX-RP-I002": ("RP get image",                image_query),
-    "LAB-NX-RP-I003": ("RP update flag",              report_flag),
-    "LAB-NX-RP-I004": ("RP get canceled",             cancel_report_query),
+    "LAB-DEMO-RP-O001": ("RP submit report",            report_upload),
+    "LAB-DEMO-RP-O002": ("RP upload image",             image_upload),
+    "LAB-DEMO-RP-O003": ("RP cancel check",             cancel_report),
+    "LAB-DEMO-RP-I001": ("RP get report",               report_query),
+    "LAB-DEMO-RP-I002": ("RP get image",                image_query),
+    "LAB-DEMO-RP-I003": ("RP update flag",              report_flag),
+    "LAB-DEMO-RP-I004": ("RP get canceled",             cancel_report_query),
     # Warnings
-    "LAB-NX-CV-O001": ("CV upload warn",              warn_upload),
-    "LAB-NX-CV-O002": ("CV get feedback",             warn_query),
-    "LAB-NX-CV-I001": ("CV get warn",                 warn_query),
-    "LAB-NX-CV-I002": ("CV update feedback",          warn_update),
+    "LAB-DEMO-CV-O001": ("CV upload warn",              warn_upload),
+    "LAB-DEMO-CV-O002": ("CV get feedback",             warn_query),
+    "LAB-DEMO-CV-I001": ("CV get warn",                 warn_query),
+    "LAB-DEMO-CV-I002": ("CV update feedback",          warn_update),
     # QC
-    "LAB-NX-QC-I001": ("QC upload (hospital)",        qc_upload),
-    "LAB-NX-QC-O001": ("QC upload (center)",          qc_upload),
-    "LAB-NX-QC-O002": ("QC query",                    qc_query),
-    "LAB-NX-QC-O003": ("QC stats",                    qc_query),
-    "LAB-NX-QC-O004": ("QC eqa",                      qc_query),
+    "LAB-DEMO-QC-I001": ("QC upload (hospital)",        qc_upload),
+    "LAB-DEMO-QC-O001": ("QC upload (center)",          qc_upload),
+    "LAB-DEMO-QC-O002": ("QC query",                    qc_query),
+    "LAB-DEMO-QC-O003": ("QC stats",                    qc_query),
+    "LAB-DEMO-QC-O004": ("QC eqa",                      qc_query),
     # Equipment
-    "LAB-NX-EQ-I001": ("EQ upload (hospital)",        device_upload),
-    "LAB-NX-EQ-O001": ("EQ upload (center)",          device_upload),
-    "LAB-NX-EQ-O002": ("EQ query",                    device_query),
+    "LAB-DEMO-EQ-I001": ("EQ upload (hospital)",        device_upload),
+    "LAB-DEMO-EQ-O001": ("EQ upload (center)",          device_upload),
+    "LAB-DEMO-EQ-O002": ("EQ query",                    device_query),
     # Applications
-    "LAB-NX-QR-I001": ("QR app list",                 app_query),
-    "LAB-NX-QR-I002": ("QR submit app",               app_submit),
+    "LAB-DEMO-QR-I001": ("QR app list",                 app_query),
+    "LAB-DEMO-QR-I002": ("QR submit app",               app_submit),
 }
 
 

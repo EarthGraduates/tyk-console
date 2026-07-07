@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 import httpx
 import json
 import asyncpg
-from config import TYK_URL, TYK_SECRET, PG_DSN
+from config import TYK_URL, TYK_SECRET, PG_DSN, SERVICES_URL
 
 router = APIRouter()
 
@@ -27,15 +27,17 @@ def _build_tyk_definition(
     url: str,
     listen_path: str | None = None,
     auth_mode: str = "keyless",
-    target_url: str = "http://host.docker.internal:8000",
+    target_url: str = "",
 ) -> dict:
     """Build a complete Tyk API definition JSON from interface metadata."""
+    if not target_url:
+        target_url = SERVICES_URL
     api_id = f"ichse-{interface_id.lower()}"
     parts = url.rstrip("/").split("/")
     direction_slug = parts[-2] if len(parts) > 1 else ""
     operation = parts[-1] if len(parts) > 0 else ""
     if listen_path is None:
-        listen_path = f"/api/ygt/mdrs/v1/lis-center/{direction_slug}/{operation}"
+        listen_path = f"/api/demo/mdrs/v1/lis-center/{direction_slug}/{operation}"
 
     return {
         "api_id": api_id,
@@ -103,7 +105,7 @@ async def register_api(data: dict):
         # 2. Build Tyk definition
         listen_path = data.get("listen_path")
         auth_mode = data.get("auth_mode", "keyless")
-        target_url = data.get("target_url", "http://host.docker.internal:8000")
+        target_url = data.get("target_url") or SERVICES_URL
         tyk_def = _build_tyk_definition(
             iface["interface_id"], iface["interface_name"], iface["func_name"],
             iface["url"], listen_path=listen_path, auth_mode=auth_mode, target_url=target_url,

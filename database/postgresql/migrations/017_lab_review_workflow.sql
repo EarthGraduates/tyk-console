@@ -59,7 +59,7 @@ GRANT USAGE ON SEQUENCE biz.lab_review_logs_id_seq TO web_anon;
 -- ============================================================
 
 -- 5a. E01: submit report → defaults to pending_first_review (includes Phase 1 col_org)
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e01_submit_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e01_submit_report(payload json)
 RETURNS json AS $$
 DECLARE
   v_id int;
@@ -133,7 +133,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 5b. E08: cancel — accept wider status range
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e08_cancel_check_for_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e08_cancel_check_for_report(payload json)
 RETURNS json AS $$
 BEGIN
   UPDATE biz.lab_test_reports SET
@@ -147,7 +147,7 @@ BEGIN
     AND is_valid = true;
 
   IF NOT FOUND THEN
-    RETURN jsonb_build_object('code', 400, 'message', '报告不存在或当前状态不允许撤销');
+    RETURN jsonb_build_object('code', 400, 'message', 'Report not found or current status does not allow cancellation');
   END IF;
 
   -- Record cancel in review log
@@ -163,7 +163,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 5c. E03: get report — now includes rpt_status in output
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e03_get_lab_report(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e03_get_lab_report(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -236,7 +236,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- ============================================================
 
 -- 6a. E10: First review submission
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e10_submit_first_review(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e10_submit_first_review(payload json)
 RETURNS json AS $$
 DECLARE
   v_report_int_id int;
@@ -250,11 +250,11 @@ BEGIN
   WHERE rpt_id = payload->>'reportId' AND is_valid = true;
 
   IF v_report_int_id IS NULL THEN
-    RETURN jsonb_build_object('code', 400, 'message', '报告不存在: ' || (payload->>'reportId'));
+    RETURN jsonb_build_object('code', 400, 'message', 'Report not found: ' || (payload->>'reportId'));
   END IF;
 
   IF v_current_status != 'pending_first_review' THEN
-    RETURN jsonb_build_object('code', 400, 'message', '当前状态不允许一审: ' || v_current_status);
+    RETURN jsonb_build_object('code', 400, 'message', 'Current status does not allow first review: ' || v_current_status);
   END IF;
 
   INSERT INTO biz.lab_review_logs (report_id, review_action, reviewer_doctor, reviewer_name,
@@ -285,7 +285,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 6b. E11: Second review submission
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e11_submit_second_review(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e11_submit_second_review(payload json)
 RETURNS json AS $$
 DECLARE
   v_report_int_id int;
@@ -302,15 +302,15 @@ BEGIN
   WHERE rpt_id = payload->>'reportId' AND is_valid = true;
 
   IF v_report_int_id IS NULL THEN
-    RETURN jsonb_build_object('code', 400, 'message', '报告不存在: ' || (payload->>'reportId'));
+    RETURN jsonb_build_object('code', 400, 'message', 'Report not found: ' || (payload->>'reportId'));
   END IF;
 
   IF v_current_status != 'pending_second_review' THEN
-    RETURN jsonb_build_object('code', 400, 'message', '当前状态不允许二审: ' || v_current_status);
+    RETURN jsonb_build_object('code', 400, 'message', 'Current status does not allow second review: ' || v_current_status);
   END IF;
 
   IF NOT v_night_shift AND v_first_reviewer IS NOT NULL AND v_first_reviewer = payload->>'reviewer' THEN
-    RETURN jsonb_build_object('code', 400, 'message', '二审与一审不能为同一人（夜班可例外）');
+    RETURN jsonb_build_object('code', 400, 'message', 'Second review must be by a different person than first review');
   END IF;
 
   INSERT INTO biz.lab_review_logs (report_id, review_action, reviewer_doctor, reviewer_name,
@@ -335,7 +335,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 6c. E12: Get pending review queue
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e12_get_pending_reviews(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e12_get_pending_reviews(payload json)
 RETURNS json AS $$
 DECLARE
   v_review_stage text;
@@ -373,7 +373,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 6d. E13: Get review logs for a report
-CREATE OR REPLACE FUNCTION ichse.lab_nx_rp_e13_get_review_logs(payload json)
+CREATE OR REPLACE FUNCTION ichse.lab_demo_rp_e13_get_review_logs(payload json)
 RETURNS json AS $$
 DECLARE v_result jsonb;
 BEGIN
@@ -404,22 +404,22 @@ INSERT INTO biz.interfaces
   (interface_id, platform, biz_domain, biz_category, category_code, biz_id,
    interface_name, func_name, direction, data_flow, http_method, url, description, target_table, target_op)
 VALUES
-  ('LAB-NX-RP-O004', 'NX', 'LAB', 'E.报告管理', 'RP', 'E10',
-   '检验报告一审提交', 'lab_nx_rp_e10_submit_first_review', '临检中心方', 'O', 'POST',
-   '/api/ygt/mdrs/v1/lis-center/rp/submitFirstReview',
-   '检验中心一审审核报告，支持通过/驳回', NULL, NULL),
-  ('LAB-NX-RP-O005', 'NX', 'LAB', 'E.报告管理', 'RP', 'E11',
-   '检验报告二审提交', 'lab_nx_rp_e11_submit_second_review', '临检中心方', 'O', 'POST',
-   '/api/ygt/mdrs/v1/lis-center/rp/submitSecondReview',
-   '检验中心二审审核报告，校验同人约束（夜班可例外）', NULL, NULL),
-  ('LAB-NX-RP-I005', 'NX', 'LAB', 'E.报告管理', 'RP', 'E12',
-   '待审核报告查询', 'lab_nx_rp_e12_get_pending_reviews', '临检中心方', 'I', 'POST',
-   '/api/ygt/mdrs/v1/lis-center/rp/getPendingReviews',
-   '按一审/二审查询待审核报告队列', NULL, NULL),
-  ('LAB-NX-RP-I006', 'NX', 'LAB', 'E.报告管理', 'RP', 'E13',
-   '审核日志查询', 'lab_nx_rp_e13_get_review_logs', '临检中心方', 'I', 'POST',
-   '/api/ygt/mdrs/v1/lis-center/rp/getReviewLogs',
-   '按 reportId 查询报告的完整审核历史', NULL, NULL)
+  ('LAB-DEMO-RP-O004', 'DEMO', 'LAB', 'E.报告管理', 'RP', 'E10',
+   'Submit First Review', 'lab_demo_rp_e10_submit_first_review', 'Lab Center', 'O', 'POST',
+   '/api/demo/mdrs/v1/lis-center/rp/submitFirstReview',
+   'Submit first review result (approve or reject)', NULL, NULL),
+  ('LAB-DEMO-RP-O005', 'DEMO', 'LAB', 'E.报告管理', 'RP', 'E11',
+   'Submit Second Review', 'lab_demo_rp_e11_submit_second_review', 'Lab Center', 'O', 'POST',
+   '/api/demo/mdrs/v1/lis-center/rp/submitSecondReview',
+   'Submit second review result, enforces two-person rule', NULL, NULL),
+  ('LAB-DEMO-RP-I005', 'DEMO', 'LAB', 'E.报告管理', 'RP', 'E12',
+   'Pending Review Queue', 'lab_demo_rp_e12_get_pending_reviews', 'Lab Center', 'I', 'POST',
+   '/api/demo/mdrs/v1/lis-center/rp/getPendingReviews',
+   'Query pending review reports by stage (first/second)', NULL, NULL),
+  ('LAB-DEMO-RP-I006', 'DEMO', 'LAB', 'E.报告管理', 'RP', 'E13',
+   'Review Log Query', 'lab_demo_rp_e13_get_review_logs', 'Lab Center', 'I', 'POST',
+   '/api/demo/mdrs/v1/lis-center/rp/getReviewLogs',
+   'Query complete review history for a report', NULL, NULL)
 ON CONFLICT (interface_id) DO UPDATE SET
   func_name = EXCLUDED.func_name, url = EXCLUDED.url,
   description = EXCLUDED.description, updated_at = now();
@@ -428,7 +428,7 @@ ON CONFLICT (interface_id) DO UPDATE SET
 -- 8. Grant execute on new functions
 -- ============================================================
 
-GRANT EXECUTE ON FUNCTION ichse.lab_nx_rp_e10_submit_first_review(json) TO web_anon;
-GRANT EXECUTE ON FUNCTION ichse.lab_nx_rp_e11_submit_second_review(json) TO web_anon;
-GRANT EXECUTE ON FUNCTION ichse.lab_nx_rp_e12_get_pending_reviews(json) TO web_anon;
-GRANT EXECUTE ON FUNCTION ichse.lab_nx_rp_e13_get_review_logs(json) TO web_anon;
+GRANT EXECUTE ON FUNCTION ichse.lab_demo_rp_e10_submit_first_review(json) TO web_anon;
+GRANT EXECUTE ON FUNCTION ichse.lab_demo_rp_e11_submit_second_review(json) TO web_anon;
+GRANT EXECUTE ON FUNCTION ichse.lab_demo_rp_e12_get_pending_reviews(json) TO web_anon;
+GRANT EXECUTE ON FUNCTION ichse.lab_demo_rp_e13_get_review_logs(json) TO web_anon;

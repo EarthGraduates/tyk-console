@@ -54,7 +54,7 @@ function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) 
         initialValues={{ strip_listen_path: true }}>
         <Space orientation="vertical" style={{ width: '100%' }}>
           <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="例如：检验样本类型下载" /></Form.Item>
-          <Form.Item name="api_id" label="API ID" rules={[{ required: true, pattern: /^[a-z0-9_-]+$/, message: '仅支持小写字母、数字、下划线和连字符' }]}><Input placeholder="例如：ichse-lab-nx-md-i001" /></Form.Item>
+          <Form.Item name="api_id" label="API ID" rules={[{ required: true, pattern: /^[a-z0-9_-]+$/, message: '仅支持小写字母、数字、下划线和连字符' }]}><Input placeholder="例如：ichse-lab-demo-md-i001" /></Form.Item>
           <Form.Item name="listen_path" label="监听路径" rules={[{ required: true, pattern: /^\/[\w\-/]*\/$/, message: '必须以 / 开头和结尾' }]}><Input placeholder="/api/..." /></Form.Item>
           <Form.Item name="target_url" label="上游 URL" rules={[{ required: true }]}><Input placeholder="http://services:8000" /></Form.Item>
           <Form.Item name="strip_listen_path" label="剥离路径" valuePropName="checked"><Switch /></Form.Item>

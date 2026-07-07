@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from redis.asyncio import Redis
 import asyncpg
-from config import REDIS_URL, SERVICE_PORT
+from config import REDIS_URL, SERVICE_PORT, PG_DSN
 
 from routes.admin import router as admin_router
 from routes.gateway import router as gateway_router
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     global rule_loader, validation_engine, log_writer
     redis = Redis.from_url(REDIS_URL, decode_responses=True)
     pg_pool = await asyncpg.create_pool(
-        "postgresql://ichse:ichse_dev@localhost:5433/ichse",
+        PG_DSN,
         min_size=2,
         max_size=10,
     )
