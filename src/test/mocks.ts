@@ -9,17 +9,17 @@ import { vi } from "vitest";
 
 /** A no-op DataProvider that returns empty/default data for every method. */
 export const MockJSONServer: DataProvider = {
-  create: async () => ({ data: { id: "1" } }),
-  createMany: async () => ({ data: [] }),
-  deleteOne: async () => ({ data: { id: "1" } }),
-  deleteMany: async () => ({ data: [] }),
-  getList: async () => ({ data: [], total: 0 }),
-  getMany: async () => ({ data: [] }),
-  getOne: async () => ({ data: { id: "1" } }),
-  update: async () => ({ data: { id: "1" } }),
-  updateMany: async () => ({ data: [] }),
+  create: (async () => ({ data: { id: "1" } })) as any,
+  createMany: (async () => ({ data: [] })) as any,
+  deleteOne: (async () => ({ data: { id: "1" } })) as any,
+  deleteMany: (async () => ({ data: [] })) as any,
+  getList: (async () => ({ data: [], total: 0 })) as any,
+  getMany: (async () => ({ data: [] })) as any,
+  getOne: (async () => ({ data: { id: "1" } })) as any,
+  update: (async () => ({ data: { id: "1" } })) as any,
+  updateMany: (async () => ({ data: [] })) as any,
   getApiUrl: () => "",
-  custom: async () => ({ data: {} }),
+  custom: (async () => ({ data: {} })) as any,
 };
 
 // ── Mock fetch ──

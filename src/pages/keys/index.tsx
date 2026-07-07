@@ -203,8 +203,9 @@ function KeyModal({ open, onClose, editKey }: {
 
 // ── List ──
 export default function KeyList() {
-  const { result, isLoading } = useList({ resource: 'keys', dataProviderName: 'tyk' });
-  const { mutate: deleteKey } = useDelete({ resource: 'keys', dataProviderName: 'tyk' });
+  const { result, query } = useList({ resource: 'keys', dataProviderName: 'tyk' });
+  const isLoading = query.isLoading;
+  const { mutate: deleteKey } = useDelete({ dataProviderName: 'tyk' } as any);
   const { message } = App.useApp();
 
   const [modalOpen, setModalOpen] = useState(false);

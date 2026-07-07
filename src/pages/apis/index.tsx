@@ -120,7 +120,8 @@ export default function ApiList() {
   const [tykStatuses, setTykStatuses] = useState<Record<string, string>>({});
   const { message } = App.useApp();
 
-  const { result, isLoading, query } = useList({ resource: 'api-records', dataProviderName: 'ichseDb' });
+  const { result, query } = useList({ resource: 'api-records', dataProviderName: 'ichseDb' });
+  const isLoading = query.isLoading;
   const refetch = () => query.refetch();
 
   // Fetch Tyk status for all APIs
